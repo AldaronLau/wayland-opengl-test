@@ -238,18 +238,19 @@ static struct wl_callback_listener configure_callback_listener = {
 	configure_callback,
 };
 
-static void
-handle_configure(void *data, struct wl_shell_surface *shell_surface,
-		 uint32_t edges, int32_t width, int32_t height)
+static void handle_configure(void *data, struct wl_shell_surface *shell_surface,
+    uint32_t edges, int32_t width, int32_t height)
 {
 	struct window *window = data;
 
-    printf("%d %d\n", width, height);
 	if (window->native && window->configured) {
 		wl_egl_window_resize(window->native, width, height, 0, 0);
         window->configured = 0;
         window->window_size.width = width;
         window->window_size.height = height;
+    } else {
+        printf("GL %d %d\n", window->window_size.width, window->window_size.height);
+	    glViewport(0, 0, window->window_size.width, window->window_size.height);
     }
 }
 
@@ -357,9 +358,6 @@ redraw(void *data, struct wl_callback *callback, uint32_t time)
 	rotation[0][2] =  sin(angle);
 	rotation[2][0] = -sin(angle);
 	rotation[2][2] =  cos(angle);
-
-    printf("GL %d %d\n", window->window_size.width, window->window_size.height);
-	glViewport(0, 0, window->window_size.width, window->window_size.height);
 
 	glUniformMatrix4fv(window->gl.rotation_uniform, 1, GL_FALSE,
 			   (GLfloat *) rotation);
