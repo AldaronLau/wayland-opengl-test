@@ -574,8 +574,9 @@ signal_int(int signum)
 	running = 0;
 }
 
-int
-main(int argc, char **argv)
+//int
+//main(int argc, char **argv)
+void dive_wayland(void)
 {
 	struct sigaction sigint;
 	struct display display = { 0 };
