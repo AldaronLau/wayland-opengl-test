@@ -79,6 +79,7 @@ struct window {
 	EGLSurface egl_surface;
 	struct wl_callback *callback;
     int configured;
+    bool fullscreen;
 };
 
 static const char *vert_shader_text =
@@ -464,13 +465,28 @@ keyboard_handle_key(void *data, struct wl_keyboard *keyboard,
 		running = 0;
     else if (key == KEY_F11 && state) {
         d->window->configured = 1;
-    	wl_shell_surface_set_fullscreen(
-            d->window->shell_surface,
-            WL_SHELL_SURFACE_FULLSCREEN_METHOD_DEFAULT,
-            0, NULL
-        );
-	    struct wl_callback *callback = wl_display_sync(d->window->display->display);
-	    wl_callback_add_listener(callback, &configure_callback_listener, d->window);
+
+        if(d->window->fullscreen) {
+	        wl_shell_surface_set_maximized(
+                d->window->shell_surface,
+                NULL
+            );
+		    handle_configure(d->window, d->window->shell_surface, 0,
+				 d->window->window_size.width, d->window->window_size.height);
+
+            d->window->fullscreen = false;
+        } else {
+        	wl_shell_surface_set_fullscreen(
+                d->window->shell_surface,
+                WL_SHELL_SURFACE_FULLSCREEN_METHOD_DEFAULT,
+                0, NULL
+            );
+
+            d->window->fullscreen = true;
+        }
+
+        struct wl_callback *callback = wl_display_sync(d->window->display->display);
+        wl_callback_add_listener(callback, &configure_callback_listener, d->window);
     }
 }
 
