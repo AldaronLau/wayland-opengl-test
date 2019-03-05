@@ -230,6 +230,9 @@ configure_callback(void *data, struct wl_callback *callback, uint32_t  time)
 
 	wl_callback_destroy(callback);
 
+    printf("GL2 %d %d\n", window->window_size.width, window->window_size.height);
+    glViewport(0, 0, window->window_size.width, window->window_size.height);
+
 	if (window->callback == NULL)
 		redraw(data, NULL, time);
 }
@@ -254,9 +257,7 @@ static void handle_configure(void *data, struct wl_shell_surface *shell_surface,
     }
 }
 
-static void
-handle_popup_done(void *data, struct wl_shell_surface *shell_surface)
-{
+static void handle_popup_done(void *data, struct wl_shell_surface *shell_surface) {
 }
 
 static const struct wl_shell_surface_listener shell_surface_listener = {
@@ -265,9 +266,7 @@ static const struct wl_shell_surface_listener shell_surface_listener = {
 	handle_popup_done
 };
 
-static void
-create_surface(struct window *window)
-{
+static void create_surface(struct window *window) {
 	struct display *display = window->display;
 	EGLBoolean ret;
 	
@@ -294,14 +293,12 @@ create_surface(struct window *window)
 	assert(ret == EGL_TRUE);
 
     // Maximize Window.
-	struct wl_callback *callback;
-
 	wl_shell_surface_set_maximized(
         window->shell_surface,
         NULL
     );
 
-	callback = wl_display_sync(window->display->display);
+	struct wl_callback *callback = wl_display_sync(window->display->display);
 	wl_callback_add_listener(callback, &configure_callback_listener, window);
 }
 
@@ -465,6 +462,16 @@ keyboard_handle_key(void *data, struct wl_keyboard *keyboard,
 
 	if (key == KEY_ESC && state)
 		running = 0;
+    else if (key == KEY_F11 && state) {
+        d->window->configured = 1;
+    	wl_shell_surface_set_fullscreen(
+            d->window->shell_surface,
+            WL_SHELL_SURFACE_FULLSCREEN_METHOD_DEFAULT,
+            0, NULL
+        );
+	    struct wl_callback *callback = wl_display_sync(d->window->display->display);
+	    wl_callback_add_listener(callback, &configure_callback_listener, d->window);
+    }
 }
 
 static void
