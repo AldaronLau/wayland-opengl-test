@@ -37,11 +37,14 @@
 #include <GLES2/gl2.h>
 #include <EGL/egl.h>
 
-struct window;
+// struct window;
 struct seat;
 
-struct display {
-	struct wl_display *display;
+struct display;
+struct window;
+
+typedef struct display {
+	struct wl_display *wldisplay;
 	struct wl_registry *registry;
 	struct wl_compositor *compositor;
 	struct wl_shell *shell;
@@ -58,13 +61,13 @@ struct display {
 		EGLConfig conf;
 	} egl;
 	struct window *window;
-};
+} Display;
 
 struct geometry {
 	int width, height;
 };
 
-struct window {
+typedef struct window {
 	struct display *display;
 	struct geometry window_size;
 	struct {
@@ -80,7 +83,12 @@ struct window {
 	struct wl_callback *callback;
     int configured;
     bool fullscreen;
-};
+} Window;
+
+typedef struct Context {
+    struct display display;
+    struct window window;
+} Context;
 
 static const char *vert_shader_text =
 	"uniform mat4 rotation;\n"
@@ -121,7 +129,7 @@ static void init_egl(struct display *display) {
 	EGLint major, minor, n;
 	EGLBoolean ret;
 
-	display->egl.dpy = eglGetDisplay(display->display);
+	display->egl.dpy = eglGetDisplay(display->wldisplay);
 	assert(display->egl.dpy);
 
 	ret = eglInitialize(display->egl.dpy, &major, &minor);
@@ -299,7 +307,7 @@ static void create_surface(struct window *window) {
         NULL
     );
 
-	struct wl_callback *callback = wl_display_sync(window->display->display);
+	struct wl_callback *callback = wl_display_sync(display->wldisplay);
 	wl_callback_add_listener(callback, &configure_callback_listener, window);
 }
 
@@ -485,7 +493,7 @@ keyboard_handle_key(void *data, struct wl_keyboard *keyboard,
             d->window->fullscreen = true;
         }
 
-        struct wl_callback *callback = wl_display_sync(d->window->display->display);
+        struct wl_callback *callback = wl_display_sync(d->wldisplay);
         wl_callback_add_listener(callback, &configure_callback_listener, d->window);
     }
 }
@@ -578,59 +586,57 @@ signal_int(int signum)
 //main(int argc, char **argv)
 void dive_wayland(void)
 {
-	struct sigaction sigint;
-	struct display display = { 0 };
-	struct window  window  = { 0 };
+    struct Context context = {
+        .display = { 0 },
+        .window = { 0 },
+    };
+//	struct display display = { 0 };
+//	struct window  window  = { 0 };
 	int i, ret = 0;
 
-	window.display = &display;
-	display.window = &window;
-	window.window_size.width  = 640;
-	window.window_size.height = 360;
-    window.configured = 1;
+	context.window.display = &context.display;
+	context.display.window = &context.window;
+	context.window.window_size.width  = 640;
+	context.window.window_size.height = 360;
+    context.window.configured = 1;
 
-	display.display = wl_display_connect(NULL);
-	assert(display.display);
+	context.display.wldisplay = wl_display_connect(NULL);
+	assert(context.display.wldisplay);
 
-	display.registry = wl_display_get_registry(display.display);
-	wl_registry_add_listener(display.registry,
-				 &registry_listener, &display);
+	context.display.registry = wl_display_get_registry(context.display.wldisplay);
+	wl_registry_add_listener(context.display.registry,
+				 &registry_listener, &context.display);
 
-	wl_display_dispatch(display.display);
+	wl_display_dispatch(context.display.wldisplay);
 
-	init_egl(&display);
-	create_surface(&window);
-	init_gl(&window);
+	init_egl(&context.display);
+	create_surface(&context.window);
+	init_gl(&context.window);
 
-	display.cursor_surface =
-		wl_compositor_create_surface(display.compositor);
-
-	sigint.sa_handler = signal_int;
-	sigemptyset(&sigint.sa_mask);
-	sigint.sa_flags = SA_RESETHAND;
-	sigaction(SIGINT, &sigint, NULL);
+	context.display.cursor_surface =
+		wl_compositor_create_surface(context.display.compositor);
 
 	while (running && ret != -1)
-		ret = wl_display_dispatch(display.display);
+		ret = wl_display_dispatch(context.display.wldisplay);
 
 	fprintf(stderr, "simple-egl exiting\n");
 
-	destroy_surface(&window);
-	fini_egl(&display);
+	destroy_surface(&context.window);
+	fini_egl(&context.display);
 
-	wl_surface_destroy(display.cursor_surface);
-	if (display.cursor_theme)
-		wl_cursor_theme_destroy(display.cursor_theme);
+	wl_surface_destroy(context.display.cursor_surface);
+	if (context.display.cursor_theme)
+		wl_cursor_theme_destroy(context.display.cursor_theme);
 
-	if (display.shell)
-		wl_shell_destroy(display.shell);
+	if (context.display.shell)
+		wl_shell_destroy(context.display.shell);
 
-	if (display.compositor)
-		wl_compositor_destroy(display.compositor);
+	if (context.display.compositor)
+		wl_compositor_destroy(context.display.compositor);
 
-	wl_registry_destroy(display.registry);
-	wl_display_flush(display.display);
-	wl_display_disconnect(display.display);
+	wl_registry_destroy(context.display.registry);
+	wl_display_flush(context.display.wldisplay);
+	wl_display_disconnect(context.display.wldisplay);
 
 	return 0;
 }
