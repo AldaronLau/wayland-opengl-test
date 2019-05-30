@@ -37,19 +37,13 @@
 #include <GLES2/gl2.h>
 #include <EGL/egl.h>
 
-// struct window;
-struct seat;
-
-struct window;
-
-typedef struct window {
+typedef struct Context {
     int window_width;
     int window_height;
-	struct {
-		GLuint rotation_uniform;
-		GLuint pos;
-		GLuint col;
-	} gl;
+
+	GLuint gl_rotation_uniform;
+	GLuint gl_pos;
+	GLuint gl_col;
 
 	struct wl_egl_window *native;
 	struct wl_surface *surface;
@@ -58,10 +52,7 @@ typedef struct window {
 	struct wl_callback *callback;
     int configured;
     bool fullscreen;
-} Window;
 
-typedef struct Context {
-    struct window window;
 	struct wl_display *wldisplay;
 	struct wl_registry *registry;
 	struct wl_compositor *compositor;
@@ -73,11 +64,10 @@ typedef struct Context {
 	struct wl_cursor_theme *cursor_theme;
 	struct wl_cursor *default_cursor;
 	struct wl_surface *cursor_surface;
-	struct {
-		EGLDisplay dpy;
-		EGLContext ctx;
-		EGLConfig conf;
-	} egl;
+
+	EGLDisplay egl_dpy;
+	EGLContext egl_ctx;
+	EGLConfig egl_conf;
 } Context;
 
 static const char *vert_shader_text =
@@ -119,22 +109,22 @@ static void init_egl(struct Context *context) {
 	EGLint major, minor, n;
 	EGLBoolean ret;
 
-	context->egl.dpy = eglGetDisplay(context->wldisplay);
-	assert(context->egl.dpy);
+	context->egl_dpy = eglGetDisplay(context->wldisplay);
+	assert(context->egl_dpy);
 
-	ret = eglInitialize(context->egl.dpy, &major, &minor);
+	ret = eglInitialize(context->egl_dpy, &major, &minor);
 	assert(ret == EGL_TRUE);
 	ret = eglBindAPI(EGL_OPENGL_ES_API);
 	assert(ret == EGL_TRUE);
 
-	ret = eglChooseConfig(context->egl.dpy, config_attribs,
-			      &context->egl.conf, 1, &n);
+	ret = eglChooseConfig(context->egl_dpy, config_attribs,
+			      &context->egl_conf, 1, &n);
 	assert(ret && n == 1);
 
-	context->egl.ctx = eglCreateContext(context->egl.dpy,
-					    context->egl.conf,
+	context->egl_ctx = eglCreateContext(context->egl_dpy,
+					    context->egl_conf,
 					    EGL_NO_CONTEXT, context_attribs);
-	assert(context->egl.ctx);
+	assert(context->egl_ctx);
 }
 
 static void
@@ -142,16 +132,14 @@ fini_egl(struct Context *context)
 {
 	/* Required, otherwise segfault in egl_dri2.c: dri2_make_current()
 	 * on eglReleaseThread(). */
-	eglMakeCurrent(context->egl.dpy, EGL_NO_SURFACE, EGL_NO_SURFACE,
+	eglMakeCurrent(context->egl_dpy, EGL_NO_SURFACE, EGL_NO_SURFACE,
 		       EGL_NO_CONTEXT);
 
-	eglTerminate(context->egl.dpy);
+	eglTerminate(context->egl_dpy);
 	eglReleaseThread();
 }
 
-static GLuint
-create_shader(struct window *window, const char *source, GLenum shader_type)
-{
+static GLuint create_shader(const char *source, GLenum shader_type) {
 	GLuint shader;
 	GLint status;
 
@@ -176,14 +164,14 @@ create_shader(struct window *window, const char *source, GLenum shader_type)
 }
 
 static void
-init_gl(struct window *window)
+init_gl(struct Context *context)
 {
 	GLuint frag, vert;
 	GLuint program;
 	GLint status;
 
-	frag = create_shader(window, frag_shader_text, GL_FRAGMENT_SHADER);
-	vert = create_shader(window, vert_shader_text, GL_VERTEX_SHADER);
+	frag = create_shader(frag_shader_text, GL_FRAGMENT_SHADER);
+	vert = create_shader(vert_shader_text, GL_VERTEX_SHADER);
 
 	program = glCreateProgram();
 	glAttachShader(program, frag);
@@ -201,14 +189,14 @@ init_gl(struct window *window)
 
 	glUseProgram(program);
 	
-	window->gl.pos = 0;
-	window->gl.col = 1;
+	context->gl_pos = 0;
+	context->gl_col = 1;
 
-	glBindAttribLocation(program, window->gl.pos, "pos");
-	glBindAttribLocation(program, window->gl.col, "color");
+	glBindAttribLocation(program, context->gl_pos, "pos");
+	glBindAttribLocation(program, context->gl_col, "color");
 	glLinkProgram(program);
 
-	window->gl.rotation_uniform =
+	context->gl_rotation_uniform =
 		glGetUniformLocation(program, "rotation");
 }
 
@@ -225,14 +213,13 @@ static void
 configure_callback(void *data, struct wl_callback *callback, uint32_t  time)
 {
     struct Context* context = data;
-	struct window *window = &context->window;
 
 	wl_callback_destroy(callback);
 
-    printf("GL2 %d %d\n", window->window_width, window->window_height);
-    glViewport(0, 0, window->window_width, window->window_height);
+    printf("GL2 %d %d\n", context->window_width, context->window_height);
+    glViewport(0, 0, context->window_width, context->window_height);
 
-	if (window->callback == NULL)
+	if (context->callback == NULL)
 		redraw(data, NULL, time);
 }
 
@@ -243,16 +230,16 @@ static struct wl_callback_listener configure_callback_listener = {
 static void handle_configure(void *data, struct wl_shell_surface *shell_surface,
     uint32_t edges, int32_t width, int32_t height)
 {
-	struct window *window = data;
+    struct Context* c = data;
 
-	if (window->native && window->configured) {
-		wl_egl_window_resize(window->native, width, height, 0, 0);
-        window->configured = 0;
-        window->window_width = width;
-        window->window_height = height;
+	if (c->native && c->configured) {
+		wl_egl_window_resize(c->native, width, height, 0, 0);
+        c->configured = 0;
+        c->window_width = width;
+        c->window_height = height;
     } else {
-        printf("GL %d %d\n", window->window_width, window->window_height);
-	    glViewport(0, 0, window->window_width, window->window_height);
+        printf("GL %d %d\n", c->window_width, c->window_height);
+	    glViewport(0, 0, c->window_width, c->window_height);
     }
 }
 
@@ -266,34 +253,33 @@ static const struct wl_shell_surface_listener shell_surface_listener = {
 };
 
 static void create_surface(struct Context *context) {
-    struct window* window = &context->window;
 	EGLBoolean ret;
 	
-	window->surface = wl_compositor_create_surface(context->compositor);
-	window->shell_surface = wl_shell_get_shell_surface(context->shell,
-							   window->surface);
+	context->surface = wl_compositor_create_surface(context->compositor);
+	context->shell_surface = wl_shell_get_shell_surface(context->shell,
+							   context->surface);
 
-	wl_shell_surface_add_listener(window->shell_surface,
-				      &shell_surface_listener, window);
+	wl_shell_surface_add_listener(context->shell_surface,
+				      &shell_surface_listener, context);
 
-	window->native =
-		wl_egl_window_create(window->surface,
-				     window->window_width,
-				     window->window_height);
-	window->egl_surface =
-		eglCreateWindowSurface(context->egl.dpy,
-				       context->egl.conf,
-				       window->native, NULL);
+	context->native =
+		wl_egl_window_create(context->surface,
+				     context->window_width,
+				     context->window_height);
+	context->egl_surface =
+		eglCreateWindowSurface(context->egl_dpy,
+				       context->egl_conf,
+				       context->native, NULL);
 
-	wl_shell_surface_set_title(window->shell_surface, "simple-egl");
+	wl_shell_surface_set_title(context->shell_surface, "simple-egl");
 
-	ret = eglMakeCurrent(context->egl.dpy, window->egl_surface,
-			     window->egl_surface, context->egl.ctx);
+	ret = eglMakeCurrent(context->egl_dpy, context->egl_surface,
+			     context->egl_surface, context->egl_ctx);
 	assert(ret == EGL_TRUE);
 
     // Maximize Window.
 	wl_shell_surface_set_maximized(
-        window->shell_surface,
+        context->shell_surface,
         NULL
     );
 
@@ -301,23 +287,20 @@ static void create_surface(struct Context *context) {
 	wl_callback_add_listener(callback, &configure_callback_listener, context);
 }
 
-static void
-destroy_surface(struct window *window)
-{
-	wl_egl_window_destroy(window->native);
+static void destroy_surface(struct Context *context) {
+	wl_egl_window_destroy(context->native);
 
-	wl_shell_surface_destroy(window->shell_surface);
-	wl_surface_destroy(window->surface);
+	wl_shell_surface_destroy(context->shell_surface);
+	wl_surface_destroy(context->surface);
 
-	if (window->callback)
-		wl_callback_destroy(window->callback);
+	if (context->callback)
+		wl_callback_destroy(context->callback);
 }
 
 static const struct wl_callback_listener frame_listener;
 
 static void redraw(void *data, struct wl_callback *callback, uint32_t time) {
     struct Context* context = data;
-	struct window *window = &context->window;
 
 	static const GLfloat verts[3][2] = {
 		{ -0.5, -0.5 },
@@ -340,8 +323,8 @@ static void redraw(void *data, struct wl_callback *callback, uint32_t time) {
 	static uint32_t start_time = 0;
 //	struct wl_region *region;
 
-	assert(window->callback == callback);
-	window->callback = NULL;
+	assert(context->callback == callback);
+	context->callback = NULL;
 
 	if (callback)
 		wl_callback_destroy(callback);
@@ -355,26 +338,26 @@ static void redraw(void *data, struct wl_callback *callback, uint32_t time) {
 	rotation[2][0] = -sin(angle);
 	rotation[2][2] =  cos(angle);
 
-	glUniformMatrix4fv(window->gl.rotation_uniform, 1, GL_FALSE,
+	glUniformMatrix4fv(context->gl_rotation_uniform, 1, GL_FALSE,
 			   (GLfloat *) rotation);
 
 	glClearColor(0.0, 0.0, 1.0, 0.5);
 	glClear(GL_COLOR_BUFFER_BIT);
 
-	glVertexAttribPointer(window->gl.pos, 2, GL_FLOAT, GL_FALSE, 0, verts);
-	glVertexAttribPointer(window->gl.col, 3, GL_FLOAT, GL_FALSE, 0, colors);
-	glEnableVertexAttribArray(window->gl.pos);
-	glEnableVertexAttribArray(window->gl.col);
+	glVertexAttribPointer(context->gl_pos, 2, GL_FLOAT, GL_FALSE, 0, verts);
+	glVertexAttribPointer(context->gl_col, 3, GL_FLOAT, GL_FALSE, 0, colors);
+	glEnableVertexAttribArray(context->gl_pos);
+	glEnableVertexAttribArray(context->gl_col);
 
 	glDrawArrays(GL_TRIANGLES, 0, 3);
 
-	glDisableVertexAttribArray(window->gl.pos);
-	glDisableVertexAttribArray(window->gl.col);
+	glDisableVertexAttribArray(context->gl_pos);
+	glDisableVertexAttribArray(context->gl_col);
 
-	window->callback = wl_surface_frame(window->surface);
-	wl_callback_add_listener(window->callback, &frame_listener, window);
+	context->callback = wl_surface_frame(context->surface);
+	wl_callback_add_listener(context->callback, &frame_listener, context);
 
-	eglSwapBuffers(context->egl.dpy, window->egl_surface);
+	eglSwapBuffers(context->egl_dpy, context->egl_surface);
 }
 
 static const struct wl_callback_listener frame_listener = {
@@ -462,29 +445,29 @@ keyboard_handle_key(void *data, struct wl_keyboard *keyboard,
 	if (key == KEY_ESC && state)
 		running = 0;
     else if (key == KEY_F11 && state) {
-        c->window.configured = 1;
+        c->configured = 1;
 
-        if(c->window.fullscreen) {
+        if(c->fullscreen) {
 	        wl_shell_surface_set_maximized(
-                c->window.shell_surface,
+                c->shell_surface,
                 NULL
             );
-		    handle_configure(&c->window, c->window.shell_surface, 0,
-				 c->window.window_width, c->window.window_height);
+		    handle_configure(c, c->shell_surface, 0,
+				 c->window_width, c->window_height);
 
-            c->window.fullscreen = false;
+            c->fullscreen = false;
         } else {
         	wl_shell_surface_set_fullscreen(
-                c->window.shell_surface,
+                c->shell_surface,
                 WL_SHELL_SURFACE_FULLSCREEN_METHOD_DEFAULT,
                 0, NULL
             );
 
-            c->window.fullscreen = true;
+            c->fullscreen = true;
         }
 
         struct wl_callback *callback = wl_display_sync(c->wldisplay);
-        wl_callback_add_listener(callback, &configure_callback_listener, &c->window);
+        wl_callback_add_listener(callback, &configure_callback_listener, c);
     }
 }
 
@@ -573,14 +556,12 @@ signal_int(int signum)
 }
 
 void dive_wayland(void) {
-    struct Context context = {
-        .window = { 0 },
-    };
+    struct Context context = { 0 };
 	int i, ret = 0;
 
-	context.window.window_width  = 640;
-	context.window.window_height = 360;
-    context.window.configured = 1;
+	context.window_width  = 640;
+	context.window_height = 360;
+    context.configured = 1;
 
 	context.wldisplay = wl_display_connect(NULL);
 	assert(context.wldisplay);
@@ -593,7 +574,7 @@ void dive_wayland(void) {
 
 	init_egl(&context);
 	create_surface(&context);
-	init_gl(&context.window);
+	init_gl(&context);
 
 	context.cursor_surface =
 		wl_compositor_create_surface(context.compositor);
@@ -603,7 +584,7 @@ void dive_wayland(void) {
 
 	fprintf(stderr, "simple-egl exiting\n");
 
-	destroy_surface(&context.window);
+	destroy_surface(&context);
 	fini_egl(&context);
 
 	wl_surface_destroy(context.cursor_surface);
