@@ -39,6 +39,9 @@ pub struct Context {
     window_width: i32,
     window_height: i32,
 
+    restore_width: i32,
+    restore_height: i32,
+
 	gl_rotation_uniform: u32,
 	gl_pos: u32,
 	gl_col: u32,
@@ -95,6 +98,9 @@ pub fn start() -> Option<Context> {
 
         window_width: 640,
         window_height: 360,
+
+        restore_width: 640,
+        restore_height: 360,
 
 	    gl_rotation_uniform: 0,
 	    gl_pos: 0,

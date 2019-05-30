@@ -43,6 +43,9 @@ typedef struct Context {
     int window_width;
     int window_height;
 
+    int restore_width;
+    int restore_height;
+
 	GLuint gl_rotation_uniform;
 	GLuint gl_pos;
 	GLuint gl_col;
@@ -97,10 +100,10 @@ static void init_egl(struct Context *context) {
 
 	EGLint config_attribs[] = {
 		EGL_SURFACE_TYPE, EGL_WINDOW_BIT,
-		EGL_RED_SIZE, 8,
-		EGL_GREEN_SIZE, 8,
-		EGL_BLUE_SIZE, 8,
-//		EGL_ALPHA_SIZE, 1,
+		EGL_RED_SIZE, 2,
+		EGL_GREEN_SIZE, 2,
+		EGL_BLUE_SIZE, 2,
+//		EGL_ALPHA_SIZE, 2,
 		EGL_RENDERABLE_TYPE, EGL_OPENGL_ES2_BIT,
 		EGL_NONE
 	};
@@ -270,17 +273,17 @@ static void create_surface(struct Context *context) {
 				       context->egl_conf,
 				       context->native, NULL);
 
-	wl_shell_surface_set_title(context->shell_surface, "simple-egl");
+	wl_shell_surface_set_title(context->shell_surface, "Cala Window");
 
 	ret = eglMakeCurrent(context->egl_dpy, context->egl_surface,
 			     context->egl_surface, context->egl_ctx);
 	assert(ret == EGL_TRUE);
 
     // Maximize Window.
-	wl_shell_surface_set_maximized(
+/*	wl_shell_surface_set_maximized(
         context->shell_surface,
         NULL
-    );
+    );*/
 
 	struct wl_callback *callback = wl_display_sync(context->wldisplay);
 	wl_callback_add_listener(callback, &configure_callback_listener, context);
@@ -368,13 +371,13 @@ pointer_handle_enter(void *data, struct wl_pointer *pointer,
 		     uint32_t serial, struct wl_surface *surface,
 		     wl_fixed_t sx, wl_fixed_t sy)
 {
-/*	struct display *display = data;
+	struct Context *context = data;
 	struct wl_buffer *buffer;
-	struct wl_cursor *cursor = display->default_cursor;
+	struct wl_cursor *cursor = context->default_cursor;
 	struct wl_cursor_image *image;
 
     // Hide cursor
-	wl_pointer_set_cursor(pointer, serial, NULL, 0, 0);*/
+	wl_pointer_set_cursor(pointer, serial, NULL, 0, 0);
 }
 
 static void
@@ -396,9 +399,9 @@ pointer_handle_button(void *data, struct wl_pointer *wl_pointer,
 {
     struct Context* c = data;
 
-/*	if (button == BTN_LEFT && state == WL_POINTER_BUTTON_STATE_PRESSED)
-		wl_shell_surface_move(display->window->shell_surface,
-				      display->seat, serial);*/
+	if (button == BTN_LEFT && state == WL_POINTER_BUTTON_STATE_PRESSED)
+		wl_shell_surface_move(c->shell_surface,
+				      c->seat, serial);
 }
 
 static void
@@ -447,15 +450,22 @@ keyboard_handle_key(void *data, struct wl_keyboard *keyboard,
         c->configured = 1;
 
         if(c->fullscreen) {
-	        wl_shell_surface_set_maximized(
+        	wl_shell_surface_set_toplevel(
+                c->shell_surface
+            );
+
+/*	        wl_shell_surface_set_maximized(
                 c->shell_surface,
                 NULL
-            );
+            );*/
 		    handle_configure(c, c->shell_surface, 0,
-				 c->window_width, c->window_height);
+				 c->restore_width, c->restore_height);
 
             c->fullscreen = false;
         } else {
+            c->restore_width = c->window_width;
+            c->restore_height = c->window_height;
+
         	wl_shell_surface_set_fullscreen(
                 c->shell_surface,
                 WL_SHELL_SURFACE_FULLSCREEN_METHOD_DEFAULT,
@@ -543,15 +553,13 @@ static void registry_handle_global_remove(void *data,
 }
 
 static const struct wl_registry_listener registry_listener = {
-	registry_handle_global,
-	registry_handle_global_remove
+	.global = registry_handle_global,
+	.global_remove = registry_handle_global_remove
 };
 
 void dive_wayland(Context* context) {
-//	context->registry = wl_display_get_registry(context->wldisplay);
-
-	wl_registry_add_listener(context->registry,
-				 &registry_listener, context);
+    wl_proxy_add_listener((struct wl_proxy *) context->registry,
+        (void (**)(void)) &registry_listener, context);
 
 	wl_display_dispatch(context->wldisplay);
 
