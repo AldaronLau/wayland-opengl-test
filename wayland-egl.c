@@ -38,6 +38,8 @@
 #include <EGL/egl.h>
 
 typedef struct Context {
+    int running;
+
     int window_width;
     int window_height;
 
@@ -86,9 +88,6 @@ static const char *frag_shader_text =
 	"void main() {\n"
 	"  gl_FragColor = v_color;\n"
 	"}\n";
-
-static int running = 1;
-static struct wl_shm *wl_shm = NULL;
 
 static void init_egl(struct Context *context) {
 	static const EGLint context_attribs[] = {
@@ -443,7 +442,7 @@ keyboard_handle_key(void *data, struct wl_keyboard *keyboard,
     struct Context* c = data;
 
 	if (key == KEY_ESC && state)
-		running = 0;
+		c->running = 0;
     else if (key == KEY_F11 && state) {
         c->configured = 1;
 
@@ -534,13 +533,12 @@ registry_handle_global(void *data, struct wl_registry *registry,
 					   &wl_seat_interface, 1);
 		wl_seat_add_listener(c->seat, &seat_listener, c);
 	} else if (!strcmp(interface, "wl_shm")) {
-        wl_shm = wl_registry_bind (registry, name, &wl_shm_interface, 1);
+        c->shm = wl_registry_bind (registry, name, &wl_shm_interface, 1);
 	}
 }
 
-static void
-registry_handle_global_remove(void *data, struct wl_registry *registry,
-			      uint32_t name)
+static void registry_handle_global_remove(void *data,
+    struct wl_registry *registry, uint32_t name)
 {
 }
 
@@ -549,19 +547,9 @@ static const struct wl_registry_listener registry_listener = {
 	registry_handle_global_remove
 };
 
-static void
-signal_int(int signum)
-{
-	running = 0;
-}
-
 void dive_wayland(Context* context) {
-	int i, ret = 0;
+//	context->registry = wl_display_get_registry(context->wldisplay);
 
-	context->wldisplay = wl_display_connect(NULL);
-	assert(context->wldisplay);
-
-	context->registry = wl_display_get_registry(context->wldisplay);
 	wl_registry_add_listener(context->registry,
 				 &registry_listener, context);
 
@@ -574,8 +562,11 @@ void dive_wayland(Context* context) {
 	context->cursor_surface =
 		wl_compositor_create_surface(context->compositor);
 
-	while (running && ret != -1)
-		ret = wl_display_dispatch(context->wldisplay);
+	while (context->running) {
+		if (wl_display_dispatch(context->wldisplay) == -1) {
+            break;
+        }
+    }
 
 	fprintf(stderr, "simple-egl exiting\n");
 
@@ -593,8 +584,4 @@ void dive_wayland(Context* context) {
 		wl_compositor_destroy(context->compositor);
 
 	wl_registry_destroy(context->registry);
-	wl_display_flush(context->wldisplay);
-	wl_display_disconnect(context->wldisplay);
-
-	return 0;
 }

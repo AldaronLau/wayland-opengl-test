@@ -6,11 +6,36 @@ use std::ffi::c_void;
 #[link(name = "EGL")]
 #[link(name = "GL")]
 extern "C" {
+    static wl_registry_interface: WlInterface;
+
+    fn wl_display_connect(name: *mut c_void) -> *mut c_void;
+    fn wl_display_disconnect(name: *mut c_void) -> ();
+    fn wl_display_flush(name: *mut c_void) -> i32;
+    fn wl_proxy_marshal_constructor(name: *mut c_void, opcode: u32,
+        interface: *const c_void, p: *mut c_void) -> *mut c_void;
     fn dive_wayland(c: *mut Context) -> ();
 }
 
 #[repr(C)]
-struct Context {
+struct WlInterface {
+    /** Interface name */
+    name: *const c_void,
+    /** Interface version */
+    version: i32,
+    /** Number of methods (requests) */
+    method_count: i32,
+    /** Method (request) signatures */
+    methods: *const c_void, // *wl_message
+    /** Number of events */
+    event_count: i32,
+    /** Event signatures */
+    events: *const c_void, // *wl_message
+}
+
+#[repr(C)]
+pub struct Context {
+    running: i32,
+
     window_width: i32,
     window_height: i32,
 
@@ -44,9 +69,30 @@ struct Context {
 	egl_conf: *mut c_void, // EGLConfig
 }
 
+impl Drop for Context {
+    fn drop(&mut self) {
+        unsafe {
+            wl_display_flush(self.wldisplay);
+            wl_display_disconnect(self.wldisplay);
+        }
+    }
+}
+
 /// Start the Wayland + OpenGL application.
-pub fn start() {
+pub fn start() -> Option<Context> {
+    let wldisplay = unsafe {
+        wl_display_connect(std::ptr::null_mut())
+    };
+    if wldisplay.is_null() { return None }
+
+    let registry = unsafe {
+        wl_proxy_marshal_constructor(wldisplay, 1 /*WL_DISPLAY_GET_REGISTRY*/,
+            &wl_registry_interface as *const _ as *const _, std::ptr::null_mut())
+    };
+
     let mut context = Context {
+        running: 1,
+
         window_width: 640,
         window_height: 360,
 
@@ -63,8 +109,8 @@ pub fn start() {
         configured: 1,
         fullscreen: false,
 
-	    wldisplay: std::ptr::null_mut(), // wl_display*
-	    registry: std::ptr::null_mut(), // wl_registry*
+	    wldisplay,
+	    registry, // wl_registry*
 	    compositor: std::ptr::null_mut(), // wl_compositor*
 	    shell: std::ptr::null_mut(), // wl_shell*
 	    seat: std::ptr::null_mut(), // wl_seat*
@@ -83,6 +129,8 @@ pub fn start() {
     unsafe {
         dive_wayland(&mut context);
     }
+
+    Some(context)
 }
 
 #[cfg(test)]
