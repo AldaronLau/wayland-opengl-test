@@ -325,9 +325,7 @@ destroy_surface(struct window *window)
 
 static const struct wl_callback_listener frame_listener;
 
-static void
-redraw(void *data, struct wl_callback *callback, uint32_t time)
-{
+static void redraw(void *data, struct wl_callback *callback, uint32_t time) {
 	struct window *window = data;
 	static const GLfloat verts[3][2] = {
 		{ -0.5, -0.5 },
@@ -586,16 +584,11 @@ signal_int(int signum)
 	running = 0;
 }
 
-//int
-//main(int argc, char **argv)
-void dive_wayland(void)
-{
+void dive_wayland(void) {
     struct Context context = {
         .display = { 0 },
         .window = { 0 },
     };
-//	struct display display = { 0 };
-//	struct window  window  = { 0 };
 	int i, ret = 0;
 
 	context.window.display = &context.display;
