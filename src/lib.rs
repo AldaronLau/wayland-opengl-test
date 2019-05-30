@@ -1,7 +1,6 @@
 /*use std::ffi::c_void;
 
 struct Display {
-	struct wl_display *display: *mut c_void,
 	struct wl_registry *registry: *mut c_void,
 	struct wl_compositor *compositor: *mut c_void,
 	struct wl_shell *shell: *mut c_void,
