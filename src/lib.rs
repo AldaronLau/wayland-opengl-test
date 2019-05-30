@@ -43,9 +43,6 @@ pub struct Context {
     restore_width: i32,
     restore_height: i32,
 
-    last_width: i32,
-    last_height: i32,
-
 	gl_rotation_uniform: u32,
 	gl_pos: u32,
 	gl_col: u32,
@@ -106,9 +103,6 @@ pub fn start() -> Option<Context> {
 
         restore_width: 640,
         restore_height: 360,
-
-        last_width: 640,
-        last_height: 360,
 
 	    gl_rotation_uniform: 0,
 	    gl_pos: 0,

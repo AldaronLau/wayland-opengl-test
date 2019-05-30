@@ -47,9 +47,6 @@ typedef struct Context {
     int restore_width;
     int restore_height;
 
-    int last_width;
-    int last_height;
-
 	GLuint gl_rotation_uniform;
 	GLuint gl_pos;
 	GLuint gl_col;
@@ -239,26 +236,13 @@ static void handle_configure(void *data, struct wl_shell_surface *shell_surface,
     struct Context* c = data;
 
 	if (c->native && c->configured) {
-        if (c->fullscreen) {
-            c->last_width = c->window_width;
-            c->last_height = c->window_height;
-
-            printf("2FULLSCREEN!!! %d %d\n", width, height);
-        } else {
-            printf("gottem\n");
-            width = c->last_width;
-            height = c->last_height;
-        }
-
 		wl_egl_window_resize(c->native, width, height, 0, 0);
         c->configured = 0;
         c->window_width = width;
         c->window_height = height;
     } else {
         if (c->fullscreen) {
-            printf("FULLSCREEN!!! %d %d\n", width, height);
         } else if (width != 0 && height != 0) {
-            printf("RESTOR2E %d %d", c->restore_width, c->restore_height);
             if (c->is_restored) {
                 c->restore_width = c->window_width;
                 c->restore_height = c->window_height;
@@ -268,13 +252,12 @@ static void handle_configure(void *data, struct wl_shell_surface *shell_surface,
             c->window_width = width;
             c->window_height = height;
         } else {
-            printf("RESTORE %d %d", c->restore_width, c->restore_height);
             c->window_width = c->restore_width;
             c->window_height = c->restore_height;
             c->is_restored = 1;
     		wl_egl_window_resize(c->native, c->restore_width, c->restore_height, 0, 0);
         }
-        printf("GL %d %d\n", c->window_width, c->window_height);
+//        printf("GL %d %d\n", c->window_width, c->window_height);
 	    glViewport(0, 0, c->window_width, c->window_height);
     }
 }
@@ -499,13 +482,9 @@ keyboard_handle_key(void *data, struct wl_keyboard *keyboard,
                     NULL
                 );
             }
-//		    handle_configure(c, c->shell_surface, 0,
-//				 c->last_width, c->last_height);
 
             c->fullscreen = false;
         } else {
-//            c->last_width = c->window_width;
-//            c->last_height = c->window_height;
 
         	wl_shell_surface_set_fullscreen(
                 c->shell_surface,
