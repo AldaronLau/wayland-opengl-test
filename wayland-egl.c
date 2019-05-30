@@ -555,51 +555,46 @@ signal_int(int signum)
 	running = 0;
 }
 
-void dive_wayland(void) {
-    struct Context context = { 0 };
+void dive_wayland(Context* context) {
 	int i, ret = 0;
 
-	context.window_width  = 640;
-	context.window_height = 360;
-    context.configured = 1;
+	context->wldisplay = wl_display_connect(NULL);
+	assert(context->wldisplay);
 
-	context.wldisplay = wl_display_connect(NULL);
-	assert(context.wldisplay);
+	context->registry = wl_display_get_registry(context->wldisplay);
+	wl_registry_add_listener(context->registry,
+				 &registry_listener, context);
 
-	context.registry = wl_display_get_registry(context.wldisplay);
-	wl_registry_add_listener(context.registry,
-				 &registry_listener, &context);
+	wl_display_dispatch(context->wldisplay);
 
-	wl_display_dispatch(context.wldisplay);
+	init_egl(context);
+	create_surface(context);
+	init_gl(context);
 
-	init_egl(&context);
-	create_surface(&context);
-	init_gl(&context);
-
-	context.cursor_surface =
-		wl_compositor_create_surface(context.compositor);
+	context->cursor_surface =
+		wl_compositor_create_surface(context->compositor);
 
 	while (running && ret != -1)
-		ret = wl_display_dispatch(context.wldisplay);
+		ret = wl_display_dispatch(context->wldisplay);
 
 	fprintf(stderr, "simple-egl exiting\n");
 
-	destroy_surface(&context);
-	fini_egl(&context);
+	destroy_surface(context);
+	fini_egl(context);
 
-	wl_surface_destroy(context.cursor_surface);
-	if (context.cursor_theme)
-		wl_cursor_theme_destroy(context.cursor_theme);
+	wl_surface_destroy(context->cursor_surface);
+	if (context->cursor_theme)
+		wl_cursor_theme_destroy(context->cursor_theme);
 
-	if (context.shell)
-		wl_shell_destroy(context.shell);
+	if (context->shell)
+		wl_shell_destroy(context->shell);
 
-	if (context.compositor)
-		wl_compositor_destroy(context.compositor);
+	if (context->compositor)
+		wl_compositor_destroy(context->compositor);
 
-	wl_registry_destroy(context.registry);
-	wl_display_flush(context.wldisplay);
-	wl_display_disconnect(context.wldisplay);
+	wl_registry_destroy(context->registry);
+	wl_display_flush(context->wldisplay);
+	wl_display_disconnect(context->wldisplay);
 
 	return 0;
 }
