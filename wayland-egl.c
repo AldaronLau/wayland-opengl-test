@@ -37,6 +37,156 @@
 #include <GLES2/gl2.h>
 #include <EGL/egl.h>
 
+// XDG-parts
+
+extern const struct wl_interface wl_output_interface;
+extern const struct wl_interface wl_seat_interface;
+extern const struct wl_interface wl_surface_interface;
+extern const struct wl_interface zxdg_popup_v6_interface;
+extern const struct wl_interface zxdg_positioner_v6_interface;
+extern const struct wl_interface zxdg_surface_v6_interface;
+extern const struct wl_interface zxdg_toplevel_v6_interface;
+
+static const struct wl_interface *types[] = {
+	NULL,
+	NULL,
+	NULL,
+	NULL,
+	&zxdg_positioner_v6_interface,
+	&zxdg_surface_v6_interface,
+	&wl_surface_interface,
+	&zxdg_toplevel_v6_interface,
+	&zxdg_popup_v6_interface,
+	&zxdg_surface_v6_interface,
+	&zxdg_positioner_v6_interface,
+	&zxdg_toplevel_v6_interface,
+	&wl_seat_interface,
+	NULL,
+	NULL,
+	NULL,
+	&wl_seat_interface,
+	NULL,
+	&wl_seat_interface,
+	NULL,
+	NULL,
+	&wl_output_interface,
+	&wl_seat_interface,
+	NULL,
+};
+
+static const struct wl_message zxdg_shell_v6_requests[] = {
+	{ "destroy", "", types + 0 },
+	{ "create_positioner", "n", types + 4 },
+	{ "get_xdg_surface", "no", types + 5 },
+	{ "pong", "u", types + 0 },
+};
+
+static const struct wl_message zxdg_shell_v6_events[] = {
+	{ "ping", "u", types + 0 },
+};
+
+const struct wl_interface zxdg_shell_v6_interface = {
+	"zxdg_shell_v6", 1,
+	4, zxdg_shell_v6_requests,
+	1, zxdg_shell_v6_events,
+};
+
+static const struct wl_message zxdg_positioner_v6_requests[] = {
+	{ "destroy", "", types + 0 },
+	{ "set_size", "ii", types + 0 },
+	{ "set_anchor_rect", "iiii", types + 0 },
+	{ "set_anchor", "u", types + 0 },
+	{ "set_gravity", "u", types + 0 },
+	{ "set_constraint_adjustment", "u", types + 0 },
+	{ "set_offset", "ii", types + 0 },
+};
+
+const struct wl_interface zxdg_positioner_v6_interface = {
+	"zxdg_positioner_v6", 1,
+	7, zxdg_positioner_v6_requests,
+	0, NULL,
+};
+
+static const struct wl_message zxdg_surface_v6_requests[] = {
+	{ "destroy", "", types + 0 },
+	{ "get_toplevel", "n", types + 7 },
+	{ "get_popup", "noo", types + 8 },
+	{ "set_window_geometry", "iiii", types + 0 },
+	{ "ack_configure", "u", types + 0 },
+};
+
+static const struct wl_message zxdg_surface_v6_events[] = {
+	{ "configure", "u", types + 0 },
+};
+
+const struct wl_interface zxdg_surface_v6_interface = {
+	"zxdg_surface_v6", 1,
+	5, zxdg_surface_v6_requests,
+	1, zxdg_surface_v6_events,
+};
+
+static const struct wl_message zxdg_toplevel_v6_requests[] = {
+	{ "destroy", "", types + 0 },
+	{ "set_parent", "?o", types + 11 },
+	{ "set_title", "s", types + 0 },
+	{ "set_app_id", "s", types + 0 },
+	{ "show_window_menu", "ouii", types + 12 },
+	{ "move", "ou", types + 16 },
+	{ "resize", "ouu", types + 18 },
+	{ "set_max_size", "ii", types + 0 },
+	{ "set_min_size", "ii", types + 0 },
+	{ "set_maximized", "", types + 0 },
+	{ "unset_maximized", "", types + 0 },
+	{ "set_fullscreen", "?o", types + 21 },
+	{ "unset_fullscreen", "", types + 0 },
+	{ "set_minimized", "", types + 0 },
+};
+
+static const struct wl_message zxdg_toplevel_v6_events[] = {
+	{ "configure", "iia", types + 0 },
+	{ "close", "", types + 0 },
+};
+
+const struct wl_interface zxdg_toplevel_v6_interface = {
+	"zxdg_toplevel_v6", 1,
+	14, zxdg_toplevel_v6_requests,
+	2, zxdg_toplevel_v6_events,
+};
+
+static const struct wl_message zxdg_popup_v6_requests[] = {
+	{ "destroy", "", types + 0 },
+	{ "grab", "ou", types + 22 },
+};
+
+static const struct wl_message zxdg_popup_v6_events[] = {
+	{ "configure", "iiii", types + 0 },
+	{ "popup_done", "", types + 0 },
+};
+
+const struct wl_interface zxdg_popup_v6_interface = {
+	"zxdg_popup_v6", 1,
+	2, zxdg_popup_v6_requests,
+	2, zxdg_popup_v6_events,
+};
+
+struct zxdg_surface_v6_listener {
+	void (*configure)(void *data,
+			  struct zxdg_surface_v6 *zxdg_surface_v6,
+			  uint32_t serial);
+};
+
+struct zxdg_toplevel_v6_listener {
+	void (*configure)(void *data,
+			  struct zxdg_toplevel_v6 *zxdg_toplevel_v6,
+			  int32_t width,
+			  int32_t height,
+			  struct wl_array *states);
+	void (*close)(void *data,
+		      struct zxdg_toplevel_v6 *zxdg_toplevel_v6);
+};
+
+// Wayland Client
+
 typedef struct Context {
     int running;
     int is_restored;
@@ -70,6 +220,7 @@ typedef struct Context {
 	struct wl_cursor_theme *cursor_theme;
 	struct wl_cursor *default_cursor;
 	struct wl_surface *cursor_surface;
+    void *toplevel;
 
 	EGLDisplay egl_dpy;
 	EGLContext egl_ctx;
@@ -247,13 +398,83 @@ static void handle_configure(void *data, struct wl_shell_surface *shell_surface,
 static void handle_popup_done(void *data, struct wl_shell_surface *shell_surface) {
 }
 
-static const struct wl_shell_surface_listener shell_surface_listener = {
-	handle_ping,
-	handle_configure,
-	handle_popup_done
+static void toplevel_configure(void *data,
+			  struct zxdg_toplevel_v6 *zxdg_toplevel_v6,
+			  int32_t width,
+			  int32_t height,
+			  struct wl_array *states)
+{
+    struct Context* c = data;
+
+	if (c->native && c->configured) {
+		wl_egl_window_resize(c->native, width, height, 0, 0);
+        c->configured = 0;
+        c->window_width = width;
+        c->window_height = height;
+    } else {
+        if (c->fullscreen) {
+        } else if (width != 0 && height != 0) {
+            if (c->is_restored) {
+                c->restore_width = c->window_width;
+                c->restore_height = c->window_height;
+            }
+            c->is_restored = 0;
+    		wl_egl_window_resize(c->native, width, height, 0, 0);
+            c->window_width = width;
+            c->window_height = height;
+        } else {
+            c->window_width = c->restore_width;
+            c->window_height = c->restore_height;
+            c->is_restored = 1;
+    		wl_egl_window_resize(c->native, c->restore_width, c->restore_height, 0, 0);
+        }
+//        printf("GL %d %d\n", c->window_width, c->window_height);
+	    glViewport(0, 0, c->window_width, c->window_height);
+    }
+}
+
+static void toplevel_close(void *data,
+		      struct zxdg_toplevel_v6 *zxdg_toplevel_v6)
+{
+    printf("CLOSE EVENT!\n");
+}
+
+static const struct zxdg_toplevel_v6_listener shell_surface_listener = {
+//	handle_ping,
+	toplevel_configure,
+    toplevel_close,
+//	handle_popup_done
 };
 
-void configure_callback(void *data, struct wl_callback *callback, uint32_t  time)
+static void surface_configure(void *data, struct zxdg_surface_v6 *zxdg_surface_v6,
+    uint32_t serial)
+{
+    printf("CONFIGUREING!!!\n");
+    // ZXDG_SURFACE_V6_ACK_CONFIGURE
+    wl_proxy_marshal((struct wl_proxy *) zxdg_surface_v6, 4, serial);
+}
+
+static const struct zxdg_surface_v6_listener surface_listener = {
+    surface_configure,
+};
+
+static void
+handle_xdg_shell_ping(void *data, void *shell, uint32_t serial)
+{
+    // PONG
+	wl_proxy_marshal((struct wl_proxy *) shell,
+        3 /*ZXDG_SHELL_V6_PONG*/, serial);
+}
+
+struct zxdg_shell_v6_listener {
+	void (*ping)(void *data, void *shell, uint32_t serial);
+};
+
+const struct zxdg_shell_v6_listener XDG_SHELL_LISTENER = {
+   handle_xdg_shell_ping,
+};
+
+void configure_callback(void *data, struct wl_callback *callback, uint32_t time)
 {
     struct Context* context = data;
 
@@ -274,16 +495,35 @@ static void create_surface(struct Context *context) {
 	EGLBoolean ret;
 	
 	context->surface = wl_compositor_create_surface(context->compositor);
-	context->shell_surface = wl_shell_get_shell_surface(context->shell,
-							   context->surface);
-    // Maximize Window.
-	wl_shell_surface_set_maximized(
-        context->shell_surface,
-        NULL
+//	context->shell_surface = wl_shell_get_shell_surface(context->shell,
+//							   context->surface);
+    printf("%p\n", context->surface);
+    context->shell_surface = wl_proxy_marshal_constructor(
+        (struct wl_proxy *) context->shell,
+        2 /*ZXDG_SHELL_V6_GET_XDG_SURFACE*/,
+        &zxdg_surface_v6_interface,
+        NULL,
+        context->surface
     );
 
-	wl_shell_surface_add_listener(context->shell_surface,
-				      &shell_surface_listener, context);
+    printf("Create XDG shell surface\n");
+
+    // Maximize Window (TODO?).
+//	wl_shell_surface_set_maximized(
+//        context->shell_surface,
+//        NULL
+//    );
+
+    printf("Max XDG shell surface\n");
+
+    wl_proxy_add_listener((struct wl_proxy *) context->shell_surface,
+ (void*)&surface_listener, context);
+
+    context->toplevel = wl_proxy_marshal_constructor(
+        (struct wl_proxy *) context->shell_surface,
+        1, &zxdg_toplevel_v6_interface, NULL);
+
+    wl_proxy_add_listener(context->toplevel, &shell_surface_listener, context);
 
 	context->native =
 		wl_egl_window_create(context->surface,
@@ -295,8 +535,11 @@ static void create_surface(struct Context *context) {
 				       context->native, NULL);
 
 
-	wl_shell_surface_set_title(context->shell_surface, "Cala Window");
-	wl_shell_surface_set_class(context->shell_surface, "Cala Window");
+// TODO
+//	wl_shell_surface_set_title(context->shell_surface, "Cala Window");
+//	wl_shell_surface_set_class(context->shell_surface, "Cala Window");
+
+    wl_surface_commit(context->surface);
 
 	ret = eglMakeCurrent(context->egl_dpy, context->egl_surface,
 			     context->egl_surface, context->egl_ctx);

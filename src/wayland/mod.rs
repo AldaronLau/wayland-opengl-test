@@ -24,6 +24,7 @@ extern "C" {
     static wl_keyboard_interface: WlInterface;
     static wl_touch_interface: WlInterface;
     static wl_callback_interface: WlInterface;
+    static zxdg_shell_v6_interface: WlInterface;
 
     pub(super) fn wl_display_connect(name: *mut c_void) -> *mut c_void;
     fn wl_display_disconnect(display: *mut c_void) -> ();
@@ -85,6 +86,7 @@ static CONFIGURE_CALLBACK_LISTENER: [*mut c_void; 1] = [
 
 extern "C" {
     static CONFIGURE_CALLBACK_LISTENER: [*mut c_void; 1];
+    static XDG_SHELL_LISTENER: [*mut c_void; 1];
 }
 
 unsafe extern "C" fn pointer_handle_enter(
@@ -440,8 +442,25 @@ unsafe extern "C" fn registry_handle_global(
             1,
             std::ptr::null_mut(),
         );
-    } else if strcmp(interface, b"wl_shell\0" as *const _ as *const _) == 0 {
+    } else if (strcmp(interface, b"zxdg_shell_v6\0" as *const _ as *const _) == 0) {
+        println!("Initializing XDG-SHELL");
+
         (*c).shell = wl_proxy_marshal_constructor_versioned(
+            registry,
+            0, /*WL_REGISTRY_BIND*/
+            &zxdg_shell_v6_interface,
+            1,
+            name,
+            zxdg_shell_v6_interface.name,
+            1,
+            std::ptr::null_mut(),
+        );
+
+        wl_proxy_add_listener((*c).shell, XDG_SHELL_LISTENER.as_ptr(), c);
+
+        println!("Initialized XDG-SHELL");
+    } else if strcmp(interface, b"wl_shell\0" as *const _ as *const _) == 0 {
+/*        (*c).shell = wl_proxy_marshal_constructor_versioned(
             registry,
             0, /*WL_REGISTRY_BIND*/
             &wl_shell_interface,
@@ -450,7 +469,7 @@ unsafe extern "C" fn registry_handle_global(
             wl_shell_interface.name,
             1,
             std::ptr::null_mut(),
-        );
+        );*/
     } else if strcmp(interface, b"wl_seat\0" as *const _ as *const _) == 0 {
         (*c).seat = wl_proxy_marshal_constructor_versioned(
             registry,
@@ -541,6 +560,7 @@ pub struct WaylandWindow {
     pub(super) cursor_theme: *mut c_void,     // wl_cursor_theme*
     pub(super) default_cursor: *mut WlCursor, // wl_cursor*
     pub(super) cursor_surface: *mut c_void,   // wl_surface*
+    pub(super) toplevel: *mut c_void,         // void*
 
     pub(super) egl_dpy: *mut c_void,  // EGLDisplay
     pub(super) egl_ctx: *mut c_void,  // EGLContext
@@ -620,6 +640,7 @@ pub(super) fn new() -> Option<Box<Nwin>> {
         cursor_theme: std::ptr::null_mut(),   // wl_cursor_theme*
         default_cursor: std::ptr::null_mut(), // wl_cursor*
         cursor_surface: std::ptr::null_mut(), // wl_surface*
+        toplevel: std::ptr::null_mut(),       // void*
 
         egl_dpy: std::ptr::null_mut(), // EGLDisplay
         egl_ctx: std::ptr::null_mut(), // EGLContext
