@@ -393,8 +393,21 @@ pointer_handle_enter(void *data, struct wl_pointer *pointer,
 	struct wl_cursor *cursor = context->default_cursor;
 	struct wl_cursor_image *image;
 
+	image = context->default_cursor->images[0];
+	buffer = wl_cursor_image_get_buffer(image);
+	if (!buffer)
+		return;
+	wl_pointer_set_cursor(pointer, serial,
+			      context->cursor_surface,
+			      image->hotspot_x,
+			      image->hotspot_y);
+	wl_surface_attach(context->cursor_surface, buffer, 0, 0);
+	wl_surface_damage(context->cursor_surface, 0, 0,
+			  image->width, image->height);
+	wl_surface_commit(context->cursor_surface);
+
     // Hide cursor
-	wl_pointer_set_cursor(pointer, serial, NULL, 0, 0);
+//	wl_pointer_set_cursor(pointer, serial, context->cursor_surface, 0, 0);
 }
 
 static void
@@ -418,7 +431,7 @@ pointer_handle_button(void *data, struct wl_pointer *pointer,
 
 	if (button == BTN_LEFT) {
         if (state == WL_POINTER_BUTTON_STATE_PRESSED) {
-//    		wl_shell_surface_move(c->shell_surface, c->seat, serial);
+    		wl_shell_surface_move(c->shell_surface, c->seat, serial);
 //        	wl_pointer_set_cursor(pointer, serial, NULL, 0, 0);
         } else {//if (state == WL_POINTER_BUTTON_STATE_RELEASED) {
 
@@ -564,6 +577,17 @@ registry_handle_global(void *data, struct wl_registry *registry,
 		wl_seat_add_listener(c->seat, &seat_listener, c);
 	} else if (!strcmp(interface, "wl_shm")) {
         c->shm = wl_registry_bind (registry, name, &wl_shm_interface, 1);
+		c->cursor_theme = wl_cursor_theme_load(NULL, 16, c->shm);
+		if (!c->cursor_theme) {
+			fprintf(stderr, "unable to load default theme\n");
+			return;
+		}
+		c->default_cursor =
+			wl_cursor_theme_get_cursor(c->cursor_theme, "left_ptr");
+		if (!c->default_cursor) {
+			fprintf(stderr, "unable to load default left pointer\n");
+			// TODO: abort ?
+		}
 	}
 }
 
