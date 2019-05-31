@@ -206,6 +206,7 @@ static void
 handle_ping(void *data, struct wl_shell_surface *shell_surface,
 	    uint32_t serial)
 {
+    printf("BYE %d!\n", serial);
 	wl_shell_surface_pong(shell_surface, serial);
 }
 
@@ -295,6 +296,7 @@ static void create_surface(struct Context *context) {
 
 
 	wl_shell_surface_set_title(context->shell_surface, "Cala Window");
+	wl_shell_surface_set_class(context->shell_surface, "Cala Window");
 
 	ret = eglMakeCurrent(context->egl_dpy, context->egl_surface,
 			     context->egl_surface, context->egl_ctx);
