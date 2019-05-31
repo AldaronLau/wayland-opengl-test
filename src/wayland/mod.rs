@@ -220,7 +220,8 @@ unsafe extern "C" fn pointer_handle_button(
         if state == 1
         /*pressed*/
         {
-            wl_proxy_marshal((*c).shell_surface, 1, (*c).seat, serial);
+	        wl_proxy_marshal((*c).toplevel, 5 /*ZXDG_TOPLEVEL_V6_MOVE*/, (*c).seat, serial);
+//            wl_proxy_marshal((*c).shell_surface, 1, (*c).seat, serial);
         }
     }
 }
