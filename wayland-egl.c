@@ -101,10 +101,9 @@ static void init_egl(struct Context *context) {
 
 	EGLint config_attribs[] = {
 		EGL_SURFACE_TYPE, EGL_WINDOW_BIT,
-		EGL_RED_SIZE, 2,
-		EGL_GREEN_SIZE, 2,
-		EGL_BLUE_SIZE, 2,
-//		EGL_ALPHA_SIZE, 2,
+		EGL_RED_SIZE, 8,
+		EGL_GREEN_SIZE, 8,
+		EGL_BLUE_SIZE, 8,
 		EGL_RENDERABLE_TYPE, EGL_OPENGL_ES2_BIT,
 		EGL_NONE
 	};
@@ -212,24 +211,6 @@ handle_ping(void *data, struct wl_shell_surface *shell_surface,
 
 static void redraw(void *data, struct wl_callback *callback, uint32_t time);
 
-static void
-configure_callback(void *data, struct wl_callback *callback, uint32_t  time)
-{
-    struct Context* context = data;
-
-	wl_callback_destroy(callback);
-
-    printf("GL2 %d %d\n", context->window_width, context->window_height);
-    glViewport(0, 0, context->window_width, context->window_height);
-
-	if (context->callback == NULL)
-		redraw(data, NULL, time);
-}
-
-static struct wl_callback_listener configure_callback_listener = {
-	configure_callback,
-};
-
 static void handle_configure(void *data, struct wl_shell_surface *shell_surface,
     uint32_t edges, int32_t width, int32_t height)
 {
@@ -271,6 +252,23 @@ static const struct wl_shell_surface_listener shell_surface_listener = {
 	handle_popup_done
 };
 
+void configure_callback(void *data, struct wl_callback *callback, uint32_t  time)
+{
+    struct Context* context = data;
+
+	wl_callback_destroy(callback);
+
+    printf("GL2 %d %d\n", context->window_width, context->window_height);
+    glViewport(0, 0, context->window_width, context->window_height);
+
+	if (context->callback == NULL)
+		redraw(data, NULL, time);
+}
+
+struct wl_callback_listener CONFIGURE_CALLBACK_LISTENER = {
+	configure_callback,
+};
+
 static void create_surface(struct Context *context) {
 	EGLBoolean ret;
 	
@@ -303,7 +301,7 @@ static void create_surface(struct Context *context) {
     );*/
 
 	struct wl_callback *callback = wl_display_sync(context->wldisplay);
-	wl_callback_add_listener(callback, &configure_callback_listener, context);
+	wl_callback_add_listener(callback, &CONFIGURE_CALLBACK_LISTENER, context);
 }
 
 static void destroy_surface(struct Context *context) {
@@ -383,159 +381,20 @@ static const struct wl_callback_listener frame_listener = {
 	redraw
 };
 
-static void
-pointer_handle_enter(void *data, struct wl_pointer *pointer,
-		     uint32_t serial, struct wl_surface *surface,
-		     wl_fixed_t sx, wl_fixed_t sy)
-{
-	struct Context *context = data;
-	struct wl_buffer *buffer;
-	struct wl_cursor *cursor = context->default_cursor;
-	struct wl_cursor_image *image;
-
-	image = context->default_cursor->images[0];
-	buffer = wl_cursor_image_get_buffer(image);
-	if (!buffer)
-		return;
-	wl_pointer_set_cursor(pointer, serial,
-			      context->cursor_surface,
-			      image->hotspot_x,
-			      image->hotspot_y);
-	wl_surface_attach(context->cursor_surface, buffer, 0, 0);
-	wl_surface_damage(context->cursor_surface, 0, 0,
-			  image->width, image->height);
-	wl_surface_commit(context->cursor_surface);
-
-    // Hide cursor
-//	wl_pointer_set_cursor(pointer, serial, context->cursor_surface, 0, 0);
-}
-
-static void
-pointer_handle_leave(void *data, struct wl_pointer *pointer,
-		     uint32_t serial, struct wl_surface *surface)
-{
-}
-
-static void
-pointer_handle_motion(void *data, struct wl_pointer *pointer,
-		      uint32_t time, wl_fixed_t sx, wl_fixed_t sy)
-{
-}
-
-static void
-pointer_handle_button(void *data, struct wl_pointer *pointer,
-		      uint32_t serial, uint32_t time, uint32_t button,
-		      uint32_t state)
-{
-    struct Context* c = data;
-
-	if (button == BTN_LEFT) {
-        if (state == WL_POINTER_BUTTON_STATE_PRESSED) {
-    		wl_shell_surface_move(c->shell_surface, c->seat, serial);
-        }
-    }
-}
-
-static void
-pointer_handle_axis(void *data, struct wl_pointer *wl_pointer,
-		    uint32_t time, uint32_t axis, wl_fixed_t value)
-{
-}
-
-static const struct wl_pointer_listener pointer_listener = {
-	pointer_handle_enter,
-	pointer_handle_leave,
-	pointer_handle_motion,
-	pointer_handle_button,
-	pointer_handle_axis,
-};
-
-static void
-keyboard_handle_keymap(void *data, struct wl_keyboard *keyboard,
-		       uint32_t format, int fd, uint32_t size)
-{
-}
-
-static void
-keyboard_handle_enter(void *data, struct wl_keyboard *keyboard,
-		      uint32_t serial, struct wl_surface *surface,
-		      struct wl_array *keys)
-{
-}
-
-static void
-keyboard_handle_leave(void *data, struct wl_keyboard *keyboard,
-		      uint32_t serial, struct wl_surface *surface)
-{
-}
-
-static void
-keyboard_handle_key(void *data, struct wl_keyboard *keyboard,
-		    uint32_t serial, uint32_t time, uint32_t key,
-		    uint32_t state)
-{
-    struct Context* c = data;
-
-	if (key == KEY_ESC && state)
-		c->running = 0;
-    else if (key == KEY_F11 && state) {
-        c->configured = 1;
-
-        if(c->fullscreen) {
-            if (c->is_restored) {
-            	wl_shell_surface_set_toplevel(
-                    c->shell_surface
-                );
-            } else {
-	            wl_shell_surface_set_maximized(
-                    c->shell_surface,
-                    NULL
-                );
-            }
-
-            c->fullscreen = false;
-        } else {
-
-        	wl_shell_surface_set_fullscreen(
-                c->shell_surface,
-                WL_SHELL_SURFACE_FULLSCREEN_METHOD_DEFAULT,
-                0, NULL
-            );
-
-            c->fullscreen = true;
-        }
-
-        struct wl_callback *callback = wl_display_sync(c->wldisplay);
-        wl_callback_add_listener(callback, &configure_callback_listener, c);
-    }
-}
-
-static void
-keyboard_handle_modifiers(void *data, struct wl_keyboard *keyboard,
-			  uint32_t serial, uint32_t mods_depressed,
-			  uint32_t mods_latched, uint32_t mods_locked,
-			  uint32_t group)
-{
-}
-
-static const struct wl_keyboard_listener keyboard_listener = {
-	keyboard_handle_keymap,
-	keyboard_handle_enter,
-	keyboard_handle_leave,
-	keyboard_handle_key,
-	keyboard_handle_modifiers,
-};
-
 void dive_wayland(Context* context) {
+printf("WHO!\n");
 	wl_display_dispatch(context->wldisplay);
-
+printf("WHAT!\n");
 	init_egl(context);
+printf("WHEN!\n");
 	create_surface(context);
+printf("WHERE!\n");
 	init_gl(context);
+printf("WHY!\n");
 
 	context->cursor_surface =
 		wl_compositor_create_surface(context->compositor);
-
+printf("WHYSMTN!\n");
 	while (context->running) {
 		if (wl_display_dispatch(context->wldisplay) == -1) {
             break;

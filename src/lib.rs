@@ -1,5 +1,9 @@
 use std::ffi::c_void;
 
+mod keycodes;
+
+use self::keycodes::*;
+
 #[link(name = "wayland-client")]
 #[link(name = "wayland-egl")]
 #[link(name = "wayland-cursor")]
@@ -13,14 +17,18 @@ extern "C" {
     static wl_shell_interface: WlInterface;
     static wl_seat_interface: WlInterface;
     static wl_shm_interface: WlInterface;
+    static wl_pointer_interface: WlInterface;
+    static wl_keyboard_interface: WlInterface;
+    static wl_touch_interface: WlInterface;
+    static wl_callback_interface: WlInterface;
 
     fn wl_display_connect(name: *mut c_void) -> *mut c_void;
     fn wl_display_disconnect(name: *mut c_void) -> ();
     fn wl_display_flush(name: *mut c_void) -> i32;
     fn wl_proxy_marshal_constructor(name: *mut c_void, opcode: u32,
-        interface: *const c_void, p: *mut c_void) -> *mut c_void;
+        interface: &WlInterface, p: *mut c_void) -> *mut c_void;
     fn wl_proxy_add_listener(proxy: *mut c_void,
-        implementation: *mut *mut c_void,
+        implementation: *const *mut c_void,
         data: *mut Context) -> i32;
     fn wl_proxy_marshal_constructor_versioned(
         proxy: *mut c_void,
@@ -31,16 +39,17 @@ extern "C" {
         name2: *const c_void,
         version2: u32,
         pointer: *mut c_void,
-    /*...*/) -> *mut c_void;
-
-//    fn wl_registry_bind(wl_registry: *mut c_void, name: u32, interface: *const WlInterface, version: u32) -> *mut c_void;
+    ) -> *mut c_void;
     fn wl_cursor_theme_load(name: *const c_void, size: i32, shm: *mut c_void) -> *mut c_void;
-    fn wl_cursor_theme_get_cursor(theme: *mut c_void, name: *const c_void) -> *mut c_void;
+    fn wl_cursor_theme_get_cursor(theme: *mut c_void, name: *const c_void) -> *mut WlCursor;
+    fn wl_proxy_destroy(proxy: *mut c_void) -> ();
+    fn wl_cursor_image_get_buffer(image: *mut WlCursorImage) -> *mut c_void;
 
     fn dive_wayland(c: *mut Context) -> ();
 }
 
 #[repr(C)]
+#[derive(Copy, Clone)]
 enum WlSeatCapability {
 	Pointer = 1,
 	Keyboard = 2,
@@ -61,6 +70,22 @@ struct WlInterface {
     event_count: i32,
     /** Event signatures */
     events: *const c_void, // *wl_message
+}
+
+#[repr(C)]
+struct WlCursor {
+	image_count: u32,
+	images: *mut *mut WlCursorImage,
+	name: *mut c_void,
+}
+
+#[repr(C)]
+struct WlCursorImage {
+	width: u32,		/* actual width */
+	height: u32,	/* actual height */
+	hotspot_x: u32,	/* hot spot x (must be inside image) */
+	hotspot_y: u32,	/* hot spot y (must be inside image) */
+	delay: u32,		/* animation delay to next frame (ms) */
 }
 
 #[repr(C)]
@@ -96,7 +121,7 @@ pub struct Context {
 	keyboard: *mut c_void, // wl_keyboard*
 	shm: *mut c_void, // wl_shm*
 	cursor_theme: *mut c_void, // wl_cursor_theme*
-	default_cursor: *mut c_void, // wl_cursor*
+	default_cursor: *mut WlCursor, // wl_cursor*
 	cursor_surface: *mut c_void, // wl_surface*
 
 	egl_dpy: *mut c_void, // EGLDisplay
@@ -113,31 +138,261 @@ impl Drop for Context {
     }
 }
 
+/*unsafe extern "C" fn configure_callback(c: *mut Context,
+    callback: *mut c_void, time: u32)
+{
+	wl_callback_destroy(callback);
+
+    printf("GL2 %d %d\n", (*c).window_width, (*c).window_height);
+    glViewport(0, 0, (*c).window_width, (*c).window_height);
+
+	if ((*c).callback == NULL)
+		redraw(c, std::ptr::null_mut(), time);
+}
+
+static CONFIGURE_CALLBACK_LISTENER: [*mut c_void; 1] = [
+	configure_callback,
+];*/
+
+extern "C" {
+    static CONFIGURE_CALLBACK_LISTENER: [*mut c_void; 1];
+}
+
+unsafe extern "C" fn pointer_handle_enter(
+    c: *mut Context, pointer: *mut c_void,
+    serial: u32, surface: *mut c_void,
+    sx: i32, sy: i32)
+{
+	let cursor = (*c).default_cursor;
+	let image = *(*(*c).default_cursor).images;
+	let buffer = wl_cursor_image_get_buffer(image);
+	if buffer.is_null() {
+		return;
+    }
+
+    {
+        extern "C" {
+            fn wl_proxy_marshal(p: *mut c_void, opcode: u32, a: u32, b: *mut c_void, c: u32, d: u32) -> ();
+        }
+
+        wl_proxy_marshal(pointer, 0 /*WL_POINTER_SET_CURSOR*/, serial,
+            (*c).cursor_surface,
+            (*image).hotspot_x,
+            (*image).hotspot_y);
+    }
+    {
+        extern "C" {
+            fn wl_proxy_marshal(p: *mut c_void, opcode: u32, a: *mut c_void, b: i32, c: i32) -> ();
+        }
+
+	    wl_proxy_marshal((*c).cursor_surface, 1 /*WL_SURFACE_ATTACH*/, buffer, 0, 0);
+    }
+    {
+        extern "C" {
+            fn wl_proxy_marshal(p: *mut c_void, opcode: u32, a:u32, b: u32, c: u32, d: u32) -> ();
+        }
+
+	    wl_proxy_marshal((*c).cursor_surface, 2 /*WL_SURFACE_DAMAGE*/, 0, 0,
+			      (*image).width, (*image).height);
+    }
+    {
+        extern "C" {
+            fn wl_proxy_marshal(p: *mut c_void, opcode: u32) -> ();
+        }
+
+        wl_proxy_marshal((*c).cursor_surface, 6 /*WL_SURFACE_COMMIT*/);
+    }
+
+    // Hide cursor
+//	wl_pointer_set_cursor(pointer, serial, (*c).cursor_surface, 0, 0);
+}
+
+unsafe extern "C" fn pointer_handle_leave(
+    c: *mut Context, pointer: *mut c_void,
+    serial: u32, surface: *mut c_void)
+{
+}
+
+unsafe extern "C" fn pointer_handle_motion(
+    c: *mut Context, pointer: *mut c_void,
+    time: u32, sx: i32, sy: i32)
+{
+}
+
+unsafe extern "C" fn pointer_handle_button(
+    c: *mut Context, pointer: *mut c_void,
+    serial: u32, time: u32, button: u32,
+    state: u32)
+{
+    const BTN_LEFT: u32 = 0x110;
+    const BTN_RIGHT: u32 = 0x111;
+    const BTN_MIDDLE: u32 = 0x112;
+    const BTN_SIDE: u32 = 0x113;
+
+    extern "C" {
+        fn wl_proxy_marshal(p: *mut c_void, opcode: u32, a: *mut c_void, b: u32) -> ();
+    }
+
+	if button == BTN_LEFT {
+        if state == 1 /*pressed*/ {
+            wl_proxy_marshal((*c).shell_surface, 1, (*c).seat, serial);
+        }
+    }
+}
+
+unsafe extern "C" fn pointer_handle_axis(
+    c: *mut Context, pointer: *mut c_void,
+    time: u32, axis: u32, value: i32)
+{
+}
+
+static mut POINTER_LISTENER: [*mut c_void; 9] = [
+	pointer_handle_enter as *mut _,
+	pointer_handle_leave as *mut _,
+	pointer_handle_motion as *mut _,
+	pointer_handle_button as *mut _,
+	pointer_handle_axis as *mut _,
+    std::ptr::null_mut(),
+    std::ptr::null_mut(),
+    std::ptr::null_mut(),
+    std::ptr::null_mut(),
+];
+
+unsafe extern "C" fn keyboard_handle_keymap(
+    c: *mut Context, keyboard: *mut c_void,
+    format: u32, fd: i32, size: u32)
+{
+}
+
+unsafe extern "C" fn keyboard_handle_enter(
+    c: *mut Context, keyboard: *mut c_void,
+    serial: u32, surface: *mut c_void, keys: *mut c_void)
+{
+}
+
+unsafe extern "C" fn keyboard_handle_leave(
+    c: *mut Context, keyboard: *mut c_void,
+    serial: u32, surface: *mut c_void)
+{
+}
+
+unsafe extern "C" fn keyboard_handle_key(
+    c: *mut Context, keyboard: *mut c_void, serial: u32, time: u32, key: u32,
+    state: u32)
+{
+	if key == KEY_ESC && state != 0 {
+		(*c).running = 0;
+    } else if key == KEY_F11 && state != 0 {
+        (*c).configured = 1;
+
+        if (*c).fullscreen {
+            if (*c).is_restored != 0 {
+                // Restore
+                extern "C" {
+                    fn wl_proxy_marshal(p: *mut c_void, opcode: u32) -> ();
+                }
+
+                wl_proxy_marshal(
+                    (*c).shell_surface, 3 /*toplevel*/,
+                );
+            } else {
+                // Maximize
+                extern "C" {
+                    fn wl_proxy_marshal(p: *mut c_void, opcode: u32, a: *mut c_void) -> ();
+                }
+
+                wl_proxy_marshal(
+                    (*c).shell_surface, 7/*maximized*/,
+                    std::ptr::null_mut(),
+                );
+            }
+
+            (*c).fullscreen = false;
+        } else {
+            extern "C" {
+                fn wl_proxy_marshal(p: *mut c_void, opcode: u32, a: u32, b: u32, c: *mut c_void) -> ();
+            }
+
+            wl_proxy_marshal(
+                (*c).shell_surface, 5/*fullscreen*/,
+                0u32 /* WL_SHELL_SURFACE_FULLSCREEN_METHOD_DEFAULT */,
+                0u32, std::ptr::null_mut(),
+            );
+
+            (*c).fullscreen = true;
+        }
+
+        let callback = wl_proxy_marshal_constructor(
+            (*c).wldisplay, 0 /*WL_DISPLAY_SYNC*/, &wl_callback_interface, std::ptr::null_mut()
+        );
+
+        println!("CONFIGYO");
+        wl_proxy_add_listener(callback, CONFIGURE_CALLBACK_LISTENER.as_ptr(), c);
+        println!("CONFIGYA");
+    }
+}
+
+unsafe extern "C" fn keyboard_handle_modifiers(
+    c: *mut Context, keyboard: *mut c_void,
+serial: u32, mods_depressed: u32,
+mods_latched: u32, mods_locked: u32,
+group: u32)
+{
+}
+
+static mut KEYBOARD_LISTENER: [*mut c_void; 6] = [
+	keyboard_handle_keymap as *mut _,
+	keyboard_handle_enter as *mut _,
+	keyboard_handle_leave as *mut _,
+	keyboard_handle_key as *mut _,
+	keyboard_handle_modifiers as *mut _,
+    std::ptr::null_mut(),
+];
+
 unsafe extern "C" fn seat_handle_capabilities(
-    data: *mut c_void,
+    c: *mut Context,
     seat: *mut c_void,
     caps: WlSeatCapability)
 {
-    // TODO
-/*            struct Context* c = data;
+    println!("SEAAT");
 
     // Allow Pointer Events
-    if ((caps & WL_SEAT_CAPABILITY_POINTER) && !c->pointer) {
-        c->pointer = wl_seat_get_pointer(seat);
-        wl_pointer_add_listener(c->pointer, &pointer_listener, c);
-    } else if (!(caps & WL_SEAT_CAPABILITY_POINTER) && c->pointer) {
-        wl_pointer_destroy(c->pointer);
-        c->pointer = NULL;
+    let has_pointer = (caps as u32 & WlSeatCapability::Pointer as u32) != 0;
+    if has_pointer && (*c).pointer.is_null() {
+        (*c).pointer = wl_proxy_marshal_constructor(seat, 0,
+            &wl_pointer_interface, std::ptr::null_mut());
+        wl_proxy_add_listener((*c).pointer, POINTER_LISTENER.as_ptr(), c);
+    } else if !has_pointer && !(*c).pointer.is_null() {
+        wl_proxy_destroy((*c).pointer);
+        (*c).pointer = std::ptr::null_mut();
     }
 
     // Allow Keyboard Events
-    if ((caps & WL_SEAT_CAPABILITY_KEYBOARD) && !c->keyboard) {
-        c->keyboard = wl_seat_get_keyboard(seat);
-        wl_keyboard_add_listener(c->keyboard, &keyboard_listener, c);
-    } else if (!(caps & WL_SEAT_CAPABILITY_KEYBOARD) && c->keyboard) {
-        wl_keyboard_destroy(c->keyboard);
-        c->keyboard = NULL;
-    }*/
+    let has_keyboard = (caps as u32 & WlSeatCapability::Keyboard as u32) != 0;
+    if has_keyboard && (*c).keyboard.is_null() {
+        (*c).keyboard = wl_proxy_marshal_constructor(seat, 1,
+            &wl_keyboard_interface, std::ptr::null_mut());
+        wl_proxy_add_listener((*c).keyboard, KEYBOARD_LISTENER.as_ptr(), c);
+    } else if !has_keyboard && !(*c).keyboard.is_null() {
+        wl_proxy_destroy((*c).keyboard);
+        (*c).keyboard = std::ptr::null_mut();
+    }
+
+    println!("SEAT!");
+
+    // Allow Touch Events
+    // TODO
+/*
+    let has_keyboard = (caps as u32 & WlSeatCapability::Keyboard as u32) != 0;
+    if has_keyboard && (*c).keyboard.is_null() {
+        (*c).keyboard = wl_proxy_marshal_constructor(seat, 2,
+            &wl_touch_interface, std::ptr::null_mut());
+        wl_proxy_add_listener((*c).keyboard, keyboard_listener.as_ptr(), c);
+    } else if !has_keyboard && !(*c).keyboard.is_null() {
+        wl_proxy_destroy((*c).keyboard);
+        (*c).keyboard = std::ptr::null_mut();
+    }
+*/
 }
 
 unsafe extern "C" fn registry_handle_global(
@@ -147,9 +402,7 @@ unsafe extern "C" fn registry_handle_global(
     interface: *const c_void, // text
     version: u32)
 {
-        println!("make registry_handle_global");
     if strcmp(interface, b"wl_compositor\0" as *const _ as *const _) == 0 {
-        println!("make compositor1");
         (*c).compositor = wl_proxy_marshal_constructor_versioned(
             registry,
             0/*WL_REGISTRY_BIND*/,
@@ -174,7 +427,7 @@ unsafe extern "C" fn registry_handle_global(
             std::ptr::null_mut(),
         );
 
-        wl_proxy_add_listener((*c).seat, SEAT_LISTENER.as_mut_ptr(), c);
+        wl_proxy_add_listener((*c).seat, SEAT_LISTENER.as_ptr(), c);
     } else if strcmp(interface, b"wl_shm\0" as *const _ as *const _) == 0 {
         (*c).shm = wl_proxy_marshal_constructor_versioned(
             registry,
@@ -222,7 +475,7 @@ pub fn start() -> Option<Context> {
 
     let registry = unsafe {
         wl_proxy_marshal_constructor(wldisplay, 1 /*WL_DISPLAY_GET_REGISTRY*/,
-            &wl_registry_interface as *const _ as *const _, std::ptr::null_mut())
+            &wl_registry_interface, std::ptr::null_mut())
     };
 
     let mut context = Context {
@@ -265,9 +518,11 @@ pub fn start() -> Option<Context> {
 	    egl_conf: std::ptr::null_mut(), // EGLConfig
     };
 
+    println!("REG!!");
     unsafe {
-        wl_proxy_add_listener(context.registry, REGISTRY_LISTENER.as_mut_ptr(), &mut context);
+        wl_proxy_add_listener(context.registry, REGISTRY_LISTENER.as_ptr(), &mut context);
     }
+    println!("REGGG!!");
 
     unsafe {
         dive_wayland(&mut context);
