@@ -432,9 +432,6 @@ pointer_handle_button(void *data, struct wl_pointer *pointer,
 	if (button == BTN_LEFT) {
         if (state == WL_POINTER_BUTTON_STATE_PRESSED) {
     		wl_shell_surface_move(c->shell_surface, c->seat, serial);
-//        	wl_pointer_set_cursor(pointer, serial, NULL, 0, 0);
-        } else {//if (state == WL_POINTER_BUTTON_STATE_RELEASED) {
-
         }
     }
 }
@@ -529,82 +526,7 @@ static const struct wl_keyboard_listener keyboard_listener = {
 	keyboard_handle_modifiers,
 };
 
-static void
-seat_handle_capabilities(void *data, struct wl_seat *seat,
-			 enum wl_seat_capability caps)
-{
-    struct Context* c = data;
-
-    // Allow Pointer Events
-	if ((caps & WL_SEAT_CAPABILITY_POINTER) && !c->pointer) {
-		c->pointer = wl_seat_get_pointer(seat);
-		wl_pointer_add_listener(c->pointer, &pointer_listener, c);
-	} else if (!(caps & WL_SEAT_CAPABILITY_POINTER) && c->pointer) {
-		wl_pointer_destroy(c->pointer);
-		c->pointer = NULL;
-	}
-
-    // Allow Keyboard Events
-	if ((caps & WL_SEAT_CAPABILITY_KEYBOARD) && !c->keyboard) {
-		c->keyboard = wl_seat_get_keyboard(seat);
-		wl_keyboard_add_listener(c->keyboard, &keyboard_listener, c);
-	} else if (!(caps & WL_SEAT_CAPABILITY_KEYBOARD) && c->keyboard) {
-		wl_keyboard_destroy(c->keyboard);
-		c->keyboard = NULL;
-	}
-}
-
-static const struct wl_seat_listener seat_listener = {
-	seat_handle_capabilities,
-};
-
-static void
-registry_handle_global(void *data, struct wl_registry *registry,
-		       uint32_t name, const char *interface, uint32_t version)
-{
-    struct Context* c = data;
-
-	if (strcmp(interface, "wl_compositor") == 0) {
-		c->compositor =
-			wl_registry_bind(registry, name,
-					 &wl_compositor_interface, 1);
-	} else if (strcmp(interface, "wl_shell") == 0) {
-		c->shell = wl_registry_bind(registry, name,
-					    &wl_shell_interface, 1);
-	} else if (strcmp(interface, "wl_seat") == 0) {
-		c->seat = wl_registry_bind(registry, name,
-					   &wl_seat_interface, 1);
-		wl_seat_add_listener(c->seat, &seat_listener, c);
-	} else if (!strcmp(interface, "wl_shm")) {
-        c->shm = wl_registry_bind (registry, name, &wl_shm_interface, 1);
-		c->cursor_theme = wl_cursor_theme_load(NULL, 16, c->shm);
-		if (!c->cursor_theme) {
-			fprintf(stderr, "unable to load default theme\n");
-			return;
-		}
-		c->default_cursor =
-			wl_cursor_theme_get_cursor(c->cursor_theme, "left_ptr");
-		if (!c->default_cursor) {
-			fprintf(stderr, "unable to load default left pointer\n");
-			// TODO: abort ?
-		}
-	}
-}
-
-static void registry_handle_global_remove(void *data,
-    struct wl_registry *registry, uint32_t name)
-{
-}
-
-static const struct wl_registry_listener registry_listener = {
-	.global = registry_handle_global,
-	.global_remove = registry_handle_global_remove
-};
-
 void dive_wayland(Context* context) {
-    wl_proxy_add_listener((struct wl_proxy *) context->registry,
-        (void (**)(void)) &registry_listener, context);
-
 	wl_display_dispatch(context->wldisplay);
 
 	init_egl(context);

@@ -6,14 +6,45 @@ use std::ffi::c_void;
 #[link(name = "EGL")]
 #[link(name = "GL")]
 extern "C" {
+    fn strcmp(s1: *const c_void, s2: *const c_void) -> i32;
+
     static wl_registry_interface: WlInterface;
+    static wl_compositor_interface: WlInterface;
+    static wl_shell_interface: WlInterface;
+    static wl_seat_interface: WlInterface;
+    static wl_shm_interface: WlInterface;
 
     fn wl_display_connect(name: *mut c_void) -> *mut c_void;
     fn wl_display_disconnect(name: *mut c_void) -> ();
     fn wl_display_flush(name: *mut c_void) -> i32;
     fn wl_proxy_marshal_constructor(name: *mut c_void, opcode: u32,
         interface: *const c_void, p: *mut c_void) -> *mut c_void;
+    fn wl_proxy_add_listener(proxy: *mut c_void,
+        implementation: *mut *mut c_void,
+        data: *mut Context) -> i32;
+    fn wl_proxy_marshal_constructor_versioned(
+        proxy: *mut c_void,
+	    opcode: u32,
+        interface: *const WlInterface,
+	    version: u32,
+        name: u32,
+        name2: *const c_void,
+        version2: u32,
+        pointer: *mut c_void,
+    /*...*/) -> *mut c_void;
+
+//    fn wl_registry_bind(wl_registry: *mut c_void, name: u32, interface: *const WlInterface, version: u32) -> *mut c_void;
+    fn wl_cursor_theme_load(name: *const c_void, size: i32, shm: *mut c_void) -> *mut c_void;
+    fn wl_cursor_theme_get_cursor(theme: *mut c_void, name: *const c_void) -> *mut c_void;
+
     fn dive_wayland(c: *mut Context) -> ();
+}
+
+#[repr(C)]
+enum WlSeatCapability {
+	Pointer = 1,
+	Keyboard = 2,
+	Touch = 4,
 }
 
 #[repr(C)]
@@ -82,6 +113,106 @@ impl Drop for Context {
     }
 }
 
+unsafe extern "C" fn seat_handle_capabilities(
+    data: *mut c_void,
+    seat: *mut c_void,
+    caps: WlSeatCapability)
+{
+    // TODO
+/*            struct Context* c = data;
+
+    // Allow Pointer Events
+    if ((caps & WL_SEAT_CAPABILITY_POINTER) && !c->pointer) {
+        c->pointer = wl_seat_get_pointer(seat);
+        wl_pointer_add_listener(c->pointer, &pointer_listener, c);
+    } else if (!(caps & WL_SEAT_CAPABILITY_POINTER) && c->pointer) {
+        wl_pointer_destroy(c->pointer);
+        c->pointer = NULL;
+    }
+
+    // Allow Keyboard Events
+    if ((caps & WL_SEAT_CAPABILITY_KEYBOARD) && !c->keyboard) {
+        c->keyboard = wl_seat_get_keyboard(seat);
+        wl_keyboard_add_listener(c->keyboard, &keyboard_listener, c);
+    } else if (!(caps & WL_SEAT_CAPABILITY_KEYBOARD) && c->keyboard) {
+        wl_keyboard_destroy(c->keyboard);
+        c->keyboard = NULL;
+    }*/
+}
+
+unsafe extern "C" fn registry_handle_global(
+    c: *mut Context,
+    registry: *mut c_void,
+    name: u32,
+    interface: *const c_void, // text
+    version: u32)
+{
+        println!("make registry_handle_global");
+    if strcmp(interface, b"wl_compositor\0" as *const _ as *const _) == 0 {
+        println!("make compositor1");
+        (*c).compositor = wl_proxy_marshal_constructor_versioned(
+            registry,
+            0/*WL_REGISTRY_BIND*/,
+            &wl_compositor_interface,
+            1, name, wl_compositor_interface.name, 1,
+            std::ptr::null_mut(),
+        );
+    } else if strcmp(interface, b"wl_shell\0" as *const _ as *const _) == 0 {
+        (*c).shell = wl_proxy_marshal_constructor_versioned(
+            registry,
+            0/*WL_REGISTRY_BIND*/,
+            &wl_shell_interface,
+            1, name, wl_shell_interface.name, 1,
+            std::ptr::null_mut(),
+        );
+    } else if strcmp(interface, b"wl_seat\0" as *const _ as *const _) == 0 {
+        (*c).seat = wl_proxy_marshal_constructor_versioned(
+            registry,
+            0/*WL_REGISTRY_BIND*/,
+            &wl_seat_interface,
+            1, name, wl_seat_interface.name, 1,
+            std::ptr::null_mut(),
+        );
+
+        wl_proxy_add_listener((*c).seat, SEAT_LISTENER.as_mut_ptr(), c);
+    } else if strcmp(interface, b"wl_shm\0" as *const _ as *const _) == 0 {
+        (*c).shm = wl_proxy_marshal_constructor_versioned(
+            registry,
+            0/*WL_REGISTRY_BIND*/,
+            &wl_shm_interface,
+            1, name, wl_shm_interface.name, 1,
+            std::ptr::null_mut(),
+        );
+
+        (*c).cursor_theme = wl_cursor_theme_load(std::ptr::null_mut(), 16, (*c).shm);
+        if (*c).cursor_theme.is_null() {
+	        eprintln!("unable to load default theme");
+        }
+        (*c).default_cursor =
+	        wl_cursor_theme_get_cursor((*c).cursor_theme, b"left_ptr\0" as *const _ as *const _);
+        if (*c).default_cursor.is_null() {
+	        panic!("unable to load default left pointer");
+        }
+    }
+}
+
+unsafe extern "C" fn registry_handle_global_remove(
+    data: *mut c_void,
+    registry: *mut c_void,
+    name: u32)
+{
+}
+
+static mut SEAT_LISTENER: [*mut c_void; 2] = [
+    seat_handle_capabilities as *mut _,
+    std::ptr::null_mut(),
+];
+
+static mut REGISTRY_LISTENER: [*mut c_void; 2] = [
+    registry_handle_global as *mut _,
+    registry_handle_global_remove as *mut _,
+];
+
 /// Start the Wayland + OpenGL application.
 pub fn start() -> Option<Context> {
     let wldisplay = unsafe {
@@ -133,6 +264,10 @@ pub fn start() -> Option<Context> {
 	    egl_ctx: std::ptr::null_mut(), // EGLContext
 	    egl_conf: std::ptr::null_mut(), // EGLConfig
     };
+
+    unsafe {
+        wl_proxy_add_listener(context.registry, REGISTRY_LISTENER.as_mut_ptr(), &mut context);
+    }
 
     unsafe {
         dive_wayland(&mut context);
