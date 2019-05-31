@@ -382,8 +382,6 @@ static const struct wl_callback_listener frame_listener = {
 };
 
 void dive_wayland(Context* context) {
-printf("WHO!\n");
-	wl_display_dispatch(context->wldisplay);
 printf("WHAT!\n");
 	init_egl(context);
 printf("WHEN!\n");
@@ -405,16 +403,4 @@ printf("WHYSMTN!\n");
 
 	destroy_surface(context);
 	fini_egl(context);
-
-	wl_surface_destroy(context->cursor_surface);
-	if (context->cursor_theme)
-		wl_cursor_theme_destroy(context->cursor_theme);
-
-	if (context->shell)
-		wl_shell_destroy(context->shell);
-
-	if (context->compositor)
-		wl_compositor_destroy(context->compositor);
-
-	wl_registry_destroy(context->registry);
 }

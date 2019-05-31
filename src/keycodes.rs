@@ -1,3 +1,5 @@
+#![allow(unused)]
+
 pub(super) const KEY_ESC: u32 = 1;
 pub(super) const KEY_1: u32 = 2;
 pub(super) const KEY_2: u32 = 3;

@@ -1,8 +1,10 @@
 use std::ffi::c_void;
 
 mod keycodes;
+mod wl;
 
 use self::keycodes::*;
+use self::wl::*;
 
 #[link(name = "wayland-client")]
 #[link(name = "wayland-egl")]
@@ -23,8 +25,9 @@ extern "C" {
     static wl_callback_interface: WlInterface;
 
     fn wl_display_connect(name: *mut c_void) -> *mut c_void;
-    fn wl_display_disconnect(name: *mut c_void) -> ();
-    fn wl_display_flush(name: *mut c_void) -> i32;
+    fn wl_display_disconnect(display: *mut c_void) -> ();
+    fn wl_display_flush(display: *mut c_void) -> i32;
+    fn wl_display_dispatch(display: *mut c_void) -> i32;
     fn wl_proxy_marshal_constructor(
         name: *mut c_void,
         opcode: u32,
@@ -55,50 +58,12 @@ extern "C" {
         theme: *mut c_void,
         name: *const c_void,
     ) -> *mut WlCursor;
+    fn wl_cursor_theme_destroy(theme: *mut c_void) -> ();
+
     fn wl_proxy_destroy(proxy: *mut c_void) -> ();
     fn wl_cursor_image_get_buffer(image: *mut WlCursorImage) -> *mut c_void;
 
     fn dive_wayland(c: *mut Context) -> ();
-}
-
-#[repr(C)]
-#[derive(Copy, Clone)]
-enum WlSeatCapability {
-    Pointer = 1,
-    Keyboard = 2,
-    Touch = 4,
-}
-
-#[repr(C)]
-struct WlInterface {
-    /** Interface name */
-    name: *const c_void,
-    /** Interface version */
-    version: i32,
-    /** Number of methods (requests) */
-    method_count: i32,
-    /** Method (request) signatures */
-    methods: *const c_void, // *wl_message
-    /** Number of events */
-    event_count: i32,
-    /** Event signatures */
-    events: *const c_void, // *wl_message
-}
-
-#[repr(C)]
-struct WlCursor {
-    image_count: u32,
-    images: *mut *mut WlCursorImage,
-    name: *mut c_void,
-}
-
-#[repr(C)]
-struct WlCursorImage {
-    width: u32,     /* actual width */
-    height: u32,    /* actual height */
-    hotspot_x: u32, /* hot spot x (must be inside image) */
-    hotspot_y: u32, /* hot spot y (must be inside image) */
-    delay: u32,     /* animation delay to next frame (ms) */
 }
 
 #[repr(C)]
@@ -145,6 +110,17 @@ pub struct Context {
 impl Drop for Context {
     fn drop(&mut self) {
         unsafe {
+            wl_surface_destroy(self.cursor_surface);
+            if !self.cursor_theme.is_null() {
+                wl_cursor_theme_destroy(self.cursor_theme);
+            }
+            if !self.shell.is_null() {
+                wl_proxy_destroy(self.shell);
+            }
+            if !self.compositor.is_null() {
+                wl_proxy_destroy(self.compositor);
+            }
+            wl_proxy_destroy(self.registry);
             wl_display_flush(self.wldisplay);
             wl_display_disconnect(self.wldisplay);
         }
@@ -653,6 +629,8 @@ pub fn start() -> Option<Context> {
             REGISTRY_LISTENER.as_ptr(),
             &mut context,
         );
+
+        wl_display_dispatch(context.wldisplay);
     }
     println!("REGGG!!");
 
@@ -661,12 +639,4 @@ pub fn start() -> Option<Context> {
     }
 
     Some(context)
-}
-
-#[cfg(test)]
-mod tests {
-    #[test]
-    fn it_works() {
-        assert_eq!(2 + 2, 4);
-    }
 }
