@@ -275,6 +275,11 @@ static void create_surface(struct Context *context) {
 	context->surface = wl_compositor_create_surface(context->compositor);
 	context->shell_surface = wl_shell_get_shell_surface(context->shell,
 							   context->surface);
+    // Maximize Window.
+	wl_shell_surface_set_maximized(
+        context->shell_surface,
+        NULL
+    );
 
 	wl_shell_surface_add_listener(context->shell_surface,
 				      &shell_surface_listener, context);
@@ -288,17 +293,12 @@ static void create_surface(struct Context *context) {
 				       context->egl_conf,
 				       context->native, NULL);
 
+
 	wl_shell_surface_set_title(context->shell_surface, "Cala Window");
 
 	ret = eglMakeCurrent(context->egl_dpy, context->egl_surface,
 			     context->egl_surface, context->egl_ctx);
 	assert(ret == EGL_TRUE);
-
-    // Maximize Window.
-/*	wl_shell_surface_set_maximized(
-        context->shell_surface,
-        NULL
-    );*/
 
 	struct wl_callback *callback = wl_display_sync(context->wldisplay);
 	wl_callback_add_listener(callback, &CONFIGURE_CALLBACK_LISTENER, context);

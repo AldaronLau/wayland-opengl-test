@@ -53,8 +53,6 @@ pub fn start() -> Option<Window> {
 
     let mut draw = None;
 
-    println!("WINBEGIN");
-
     // Try to initialize OpenGL(ES).
     {
         draw = draw.or_else(opengl::new);
@@ -68,8 +66,6 @@ pub fn start() -> Option<Window> {
                 return None;
             })?);
     }
-
-    println!("WINDONE");
 
     // // // // // //
     // // // // // //

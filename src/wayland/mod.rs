@@ -588,7 +588,7 @@ pub(super) fn new() -> Option<Box<Nwin>> {
 
     let mut nwin = Box::new(WaylandWindow {
         running: 1,
-        is_restored: 1,
+        is_restored: 0,
 
         window_width: 640,
         window_height: 360,
