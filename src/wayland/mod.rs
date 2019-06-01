@@ -221,7 +221,6 @@ unsafe extern "C" fn pointer_handle_button(
         /*pressed*/
         {
 	        wl_proxy_marshal((*c).toplevel, 5 /*ZXDG_TOPLEVEL_V6_MOVE*/, (*c).seat, serial);
-//            wl_proxy_marshal((*c).shell_surface, 1, (*c).seat, serial);
         }
     }
 }
@@ -287,7 +286,7 @@ unsafe extern "C" fn keyboard_handle_key(
         (*c).configured = 1;
 
         if (*c).fullscreen {
-            if (*c).is_restored != 0 {
+            /*if (*c).is_restored != 0 {
                 // Restore
                 extern "C" {
                     fn wl_proxy_marshal(p: *mut c_void, opcode: u32) -> ();
@@ -309,11 +308,26 @@ unsafe extern "C" fn keyboard_handle_key(
                     7, /*maximized*/
                     std::ptr::null_mut(),
                 );
+            }*/
+
+            // UnFullscreen
+            extern "C" {
+                fn wl_proxy_marshal(
+                    p: *mut c_void,
+                    opcode: u32,
+//                    a: *mut c_void,
+                ) -> ();
             }
+
+	        wl_proxy_marshal(
+                (*c).toplevel,
+                12 /*ZXDG_TOPLEVEL_V6_UNSET_FULLSCREEN*/,
+//                std::ptr::null_mut(),
+            );
 
             (*c).fullscreen = false;
         } else {
-            extern "C" {
+            /*extern "C" {
                 fn wl_proxy_marshal(
                     p: *mut c_void,
                     opcode: u32,
@@ -328,6 +342,21 @@ unsafe extern "C" fn keyboard_handle_key(
                 5,    /*fullscreen*/
                 0u32, /* WL_SHELL_SURFACE_FULLSCREEN_METHOD_DEFAULT */
                 0u32,
+                std::ptr::null_mut(),
+            );*/
+
+            // Fullscreen
+            extern "C" {
+                fn wl_proxy_marshal(
+                    p: *mut c_void,
+                    opcode: u32,
+                    a: *mut c_void,
+                ) -> ();
+            }
+
+        	wl_proxy_marshal(
+                (*c).toplevel,
+                11 /*ZXDG_TOPLEVEL_V6_SET_FULLSCREEN*/,
                 std::ptr::null_mut(),
             );
 
@@ -443,7 +472,7 @@ unsafe extern "C" fn registry_handle_global(
             1,
             std::ptr::null_mut(),
         );
-    } else if (strcmp(interface, b"zxdg_shell_v6\0" as *const _ as *const _) == 0) {
+    } else if strcmp(interface, b"zxdg_shell_v6\0" as *const _ as *const _) == 0 {
         println!("Initializing XDG-SHELL");
 
         (*c).shell = wl_proxy_marshal_constructor_versioned(

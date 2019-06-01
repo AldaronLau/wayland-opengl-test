@@ -436,7 +436,9 @@ static void toplevel_configure(void *data,
 static void toplevel_close(void *data,
 		      struct zxdg_toplevel_v6 *zxdg_toplevel_v6)
 {
-    printf("CLOSE EVENT!\n");
+    struct Context* c = data;
+
+    c->running = 0;
 }
 
 static const struct zxdg_toplevel_v6_listener shell_surface_listener = {
