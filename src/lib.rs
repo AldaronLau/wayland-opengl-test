@@ -24,10 +24,7 @@ pub struct Window {
 
 /// Start the Wayland + OpenGL application.
 pub fn start() -> Option<Window> {
-    let mut window: Window = Window {
-        nwin: unsafe { std::mem::zeroed() },
-        draw: unsafe { std::mem::zeroed() },
-    };
+    let mut window: Window = unsafe { std::mem::zeroed() };
 
     // // // // // //
     // // // // // //
