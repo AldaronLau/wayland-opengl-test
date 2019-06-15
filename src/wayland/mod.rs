@@ -618,7 +618,9 @@ impl Drop for WaylandWindow {
 }
 
 impl Nwin for WaylandWindow {
-
+    fn handle(&self) -> *mut c_void {
+        self.wldisplay
+    }
 }
 
 pub(super) fn new() -> Option<Box<Nwin>> {
@@ -677,7 +679,6 @@ pub(super) fn new() -> Option<Box<Nwin>> {
         egl_conf: std::ptr::null_mut(), // EGLConfig
     });
 
-    println!("REG!!");
     unsafe {
         wl_proxy_add_listener(
             nwin.registry,
@@ -687,7 +688,6 @@ pub(super) fn new() -> Option<Box<Nwin>> {
 
         wl_display_dispatch(nwin.wldisplay);
     }
-    println!("REGGG!!");
 
     Some(nwin)
 }

@@ -10,6 +10,8 @@ use self::wayland::*;
 use self::opengl::*;
 
 trait Nwin {
+    // Get a pointer that refers to this window for interfacing.
+    fn handle(&self) -> *mut c_void;
 }
 
 trait Draw {
@@ -52,7 +54,7 @@ pub fn start() -> Option<Window> {
 
     // Try to initialize OpenGL(ES).
     {
-        draw = draw.or_else(opengl::new);
+        draw = draw.or_else(|| opengl::new(&mut window));
     }
 
     // Hopefully we found one of the backends.

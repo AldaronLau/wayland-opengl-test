@@ -227,6 +227,10 @@ typedef struct Context {
 	EGLConfig egl_conf;
 } Context;
 
+typedef struct OpenGL {
+    
+} OpenGL;
+
 static const char *vert_shader_text =
 	"uniform mat4 rotation;\n"
 	"attribute vec4 pos;\n"
@@ -245,11 +249,14 @@ static const char *frag_shader_text =
 	"}\n";
 
 static void init_egl(struct Context *context) {
-	static const EGLint context_attribs[] = {
-		EGL_CONTEXT_CLIENT_VERSION, 2,
-		EGL_NONE
-	};
+	EGLint major, minor;
+	EGLBoolean ret;
+	ret = eglInitialize(context->egl_dpy, &major, &minor);
+	assert(ret == EGL_TRUE);
+	ret = eglBindAPI(EGL_OPENGL_ES_API);
+	assert(ret == EGL_TRUE);
 
+    // Choose Configuration for EGL.
 	EGLint config_attribs[] = {
 		EGL_SURFACE_TYPE, EGL_WINDOW_BIT,
 		EGL_RED_SIZE, 8,
@@ -258,31 +265,23 @@ static void init_egl(struct Context *context) {
 		EGL_RENDERABLE_TYPE, EGL_OPENGL_ES2_BIT,
 		EGL_NONE
 	};
-
-	EGLint major, minor, n;
-	EGLBoolean ret;
-
-	context->egl_dpy = eglGetDisplay(context->wldisplay);
-	assert(context->egl_dpy);
-
-	ret = eglInitialize(context->egl_dpy, &major, &minor);
-	assert(ret == EGL_TRUE);
-	ret = eglBindAPI(EGL_OPENGL_ES_API);
-	assert(ret == EGL_TRUE);
-
+    EGLint n;
 	ret = eglChooseConfig(context->egl_dpy, config_attribs,
 			      &context->egl_conf, 1, &n);
 	assert(ret && n == 1);
 
+    // Create EGL_CTX.
+	static const EGLint context_attribs[] = {
+		EGL_CONTEXT_CLIENT_VERSION, 2,
+		EGL_NONE
+	};
 	context->egl_ctx = eglCreateContext(context->egl_dpy,
 					    context->egl_conf,
 					    EGL_NO_CONTEXT, context_attribs);
 	assert(context->egl_ctx);
 }
 
-static void
-fini_egl(struct Context *context)
-{
+static void fini_egl(struct Context *context) {
 	/* Required, otherwise segfault in egl_dri2.c: dri2_make_current()
 	 * on eglReleaseThread(). */
 	eglMakeCurrent(context->egl_dpy, EGL_NO_SURFACE, EGL_NO_SURFACE,
@@ -537,9 +536,8 @@ static void create_surface(struct Context *context) {
 				       context->native, NULL);
 
 
-// TODO
-//	wl_shell_surface_set_title(context->shell_surface, "Cala Window");
-//	wl_shell_surface_set_class(context->shell_surface, "Cala Window");
+    wl_proxy_marshal(context->toplevel, 2 /*SET_TITLE*/, "Cala Window");
+    wl_proxy_marshal(context->toplevel, 3 /*SET_APPID = CLASS*/, "Cala Window");
 
     wl_surface_commit(context->surface);
 
