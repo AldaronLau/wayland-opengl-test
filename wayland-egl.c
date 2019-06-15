@@ -460,12 +460,7 @@ struct wl_callback_listener CONFIGURE_CALLBACK_LISTENER = {
 };
 
 static void create_surface(struct Context *context) {
-	EGLBoolean ret;
-	
 	context->surface = wl_compositor_create_surface(context->compositor);
-//	context->shell_surface = wl_shell_get_shell_surface(context->shell,
-//							   context->surface);
-    printf("%p\n", context->surface);
     context->shell_surface = wl_proxy_marshal_constructor(
         (struct wl_proxy *) context->shell,
         2 /*ZXDG_SHELL_V6_GET_XDG_SURFACE*/,
@@ -475,14 +470,6 @@ static void create_surface(struct Context *context) {
     );
 
     printf("Create XDG shell surface\n");
-
-    // Maximize Window (TODO?).
-//	wl_shell_surface_set_maximized(
-//        context->shell_surface,
-//        NULL
-//    );
-
-    printf("Max XDG shell surface\n");
 
     wl_proxy_add_listener((struct wl_proxy *) context->shell_surface,
  (void*)&surface_listener, context);
@@ -505,9 +492,14 @@ static void create_surface(struct Context *context) {
 
     wl_proxy_marshal(context->toplevel, 2 /*SET_TITLE*/, "Cala Window");
     wl_proxy_marshal(context->toplevel, 3 /*SET_APPID = CLASS*/, "Cala Window");
+    wl_proxy_marshal(
+        context->toplevel,
+        9 /*ZXDG_TOPLEVEL_V6_SET_MAXIMIZED*/
+    );
 
     wl_surface_commit(context->surface);
 
+	EGLBoolean ret;
 	ret = eglMakeCurrent(context->egl_dpy, context->egl_surface,
 			     context->egl_surface, context->egl_ctx);
 	assert(ret == EGL_TRUE);

@@ -322,7 +322,6 @@ unsafe extern "C" fn keyboard_handle_key(
 	        wl_proxy_marshal(
                 (*c).toplevel,
                 12 /*ZXDG_TOPLEVEL_V6_UNSET_FULLSCREEN*/,
-//                std::ptr::null_mut(),
             );
 
             (*c).fullscreen = false;
