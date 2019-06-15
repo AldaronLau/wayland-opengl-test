@@ -171,18 +171,18 @@ const struct wl_interface zxdg_popup_v6_interface = {
 
 struct zxdg_surface_v6_listener {
 	void (*configure)(void *data,
-			  struct zxdg_surface_v6 *zxdg_surface_v6,
+			  void *zxdg_surface_v6,
 			  uint32_t serial);
 };
 
 struct zxdg_toplevel_v6_listener {
 	void (*configure)(void *data,
-			  struct zxdg_toplevel_v6 *zxdg_toplevel_v6,
+			  void *zxdg_toplevel_v6,
 			  int32_t width,
 			  int32_t height,
 			  struct wl_array *states);
 	void (*close)(void *data,
-		      struct zxdg_toplevel_v6 *zxdg_toplevel_v6);
+		      void *zxdg_toplevel_v6);
 };
 
 // Wayland Client
@@ -247,36 +247,6 @@ static const char *frag_shader_text =
 	"void main() {\n"
 	"  gl_FragColor = v_color;\n"
 	"}\n";
-
-static void init_egl(struct Context *context) {
-	EGLBoolean ret;
-	ret = eglBindAPI(EGL_OPENGL_ES_API);
-	assert(ret == EGL_TRUE);
-
-    // Choose Configuration for EGL.
-	EGLint config_attribs[] = {
-		EGL_SURFACE_TYPE, EGL_WINDOW_BIT,
-		EGL_RED_SIZE, 8,
-		EGL_GREEN_SIZE, 8,
-		EGL_BLUE_SIZE, 8,
-		EGL_RENDERABLE_TYPE, EGL_OPENGL_ES2_BIT,
-		EGL_NONE
-	};
-    EGLint n;
-	ret = eglChooseConfig(context->egl_dpy, config_attribs,
-			      &context->egl_conf, 1, &n);
-	assert(ret && n == 1);
-
-    // Create EGL_CTX.
-	static const EGLint context_attribs[] = {
-		EGL_CONTEXT_CLIENT_VERSION, 2,
-		EGL_NONE
-	};
-	context->egl_ctx = eglCreateContext(context->egl_dpy,
-					    context->egl_conf,
-					    EGL_NO_CONTEXT, context_attribs);
-	assert(context->egl_ctx);
-}
 
 static void fini_egl(struct Context *context) {
 	/* Required, otherwise segfault in egl_dri2.c: dri2_make_current()
@@ -395,7 +365,7 @@ static void handle_popup_done(void *data, struct wl_shell_surface *shell_surface
 }
 
 static void toplevel_configure(void *data,
-			  struct zxdg_toplevel_v6 *zxdg_toplevel_v6,
+			  void *zxdg_toplevel_v6,
 			  int32_t width,
 			  int32_t height,
 			  struct wl_array *states)
@@ -430,7 +400,7 @@ static void toplevel_configure(void *data,
 }
 
 static void toplevel_close(void *data,
-		      struct zxdg_toplevel_v6 *zxdg_toplevel_v6)
+		      void *zxdg_toplevel_v6)
 {
     struct Context* c = data;
 
@@ -444,7 +414,7 @@ static const struct zxdg_toplevel_v6_listener shell_surface_listener = {
 //	handle_popup_done
 };
 
-static void surface_configure(void *data, struct zxdg_surface_v6 *zxdg_surface_v6,
+static void surface_configure(void *data, void *zxdg_surface_v6,
     uint32_t serial)
 {
     printf("CONFIGUREING!!!\n");
@@ -624,8 +594,6 @@ static const struct wl_callback_listener frame_listener = {
 };
 
 void dive_wayland(Context* context) {
-printf("WHAT!\n");
-	init_egl(context);
 printf("WHEN!\n");
 	create_surface(context);
 printf("WHERE!\n");
