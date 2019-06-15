@@ -249,10 +249,7 @@ static const char *frag_shader_text =
 	"}\n";
 
 static void init_egl(struct Context *context) {
-	EGLint major, minor;
 	EGLBoolean ret;
-	ret = eglInitialize(context->egl_dpy, &major, &minor);
-	assert(ret == EGL_TRUE);
 	ret = eglBindAPI(EGL_OPENGL_ES_API);
 	assert(ret == EGL_TRUE);
 
