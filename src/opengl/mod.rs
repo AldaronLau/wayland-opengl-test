@@ -29,10 +29,18 @@ impl Drop for OpenGL {
 impl Draw for OpenGL {
 }
 
+#[cfg(unix)]
 pub(super) fn new(window: &mut Window) -> Option<Box<Draw>> {
     let (display, config) = unsafe {
         // Get EGL Display from Window.
-        let display = eglGetDisplay(window.nwin.handle());
+        let display = eglGetDisplay(match window.nwin.handle() {
+            #[cfg(not(
+                any(target_os = "android", target_os = "macos", target_os = "ios")
+            ))]
+            crate::NwinHandle::Wayland(handle) => {
+                handle
+            }
+        });
         debug_assert!(!display.is_null());
 
         // Initialize EGL Display.

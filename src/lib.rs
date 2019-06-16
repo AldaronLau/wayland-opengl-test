@@ -9,12 +9,25 @@ mod opengl;
 use self::wayland::*;
 use self::opengl::*;
 
+/// Native Window Handle.
+enum NwinHandle {
+    /// Wayland window handle.
+    #[cfg(all(
+        unix, not(
+            any(target_os = "android", target_os = "macos", target_os = "ios")
+        )
+    ))]
+    Wayland(*mut c_void),
+}
+
 trait Nwin {
     // Get a pointer that refers to this window for interfacing.
-    fn handle(&self) -> *mut c_void;
+    fn handle(&self) -> NwinHandle;
 }
 
 trait Draw {
+    // 
+//    fn 
 }
 
 /// A window on the monitor.

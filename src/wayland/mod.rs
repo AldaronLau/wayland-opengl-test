@@ -11,7 +11,8 @@ pub(super) use self::wl::*;
 #[link(name = "wayland-egl")]
 #[link(name = "wayland-cursor")]
 #[link(name = "EGL")]
-#[link(name = "GL")]
+//#[link(name = "GL")]
+#[link(name = "GLESv2")]
 extern "C" {
     fn strcmp(s1: *const c_void, s2: *const c_void) -> i32;
 
@@ -25,6 +26,9 @@ extern "C" {
     static wl_touch_interface: WlInterface;
     static wl_callback_interface: WlInterface;
     static zxdg_shell_v6_interface: WlInterface;
+    static zxdg_surface_v6_interface: WlInterface;
+    static zxdg_toplevel_v6_interface: WlInterface;
+    static wl_surface_interface: WlInterface;
 
     pub(super) fn wl_display_connect(name: *mut c_void) -> *mut c_void;
     fn wl_display_disconnect(display: *mut c_void) -> ();
@@ -66,6 +70,11 @@ extern "C" {
     fn wl_cursor_image_get_buffer(image: *mut WlCursorImage) -> *mut c_void;
 
     pub fn dive_wayland(c: *mut WaylandWindow) -> ();
+
+    // Wayland EGL:
+    fn wl_egl_window_resize(egl_window: *mut c_void,
+        width: i32, height: i32, dx: i32, dy: i32) -> ();
+    fn glViewport(x: i32, y: i32, width: i32, height: i32);
 }
 
 /*unsafe extern "C" fn configure_callback(c: *mut WaylandWindow,
@@ -546,12 +555,82 @@ unsafe extern "C" fn registry_handle_global_remove(
 ) {
 }
 
+unsafe extern "C" fn surface_configure(
+    data: *mut c_void,
+    zxdg_surface_v6: *mut c_void,
+    serial: u32,
+) {
+    extern "C" {
+        fn wl_proxy_marshal(
+            p: *mut c_void,
+            opcode: u32,
+            serial: u32,
+        ) -> ();
+    }
+
+    // ZXDG_SURFACE_V6_ACK_CONFIGURE
+    wl_proxy_marshal(zxdg_surface_v6, 4, serial);
+}
+
+unsafe extern "C" fn toplevel_configure(
+    c: *mut WaylandWindow,
+	zxdg_toplevel_v6: *mut c_void,
+	width: i32,
+	height: i32,
+	_states: *mut c_void)
+{
+	if (!(*c).egl_window.is_null() && (*c).configured != 0) {
+		wl_egl_window_resize((*c).egl_window, width, height, 0, 0);
+        (*c).configured = 0;
+        (*c).window_width = width;
+        (*c).window_height = height;
+    } else {
+        if ((*c).fullscreen) {
+        } else if (width != 0 && height != 0) {
+            if (*c).is_restored != 0 {
+                (*c).restore_width = (*c).window_width;
+                (*c).restore_height = (*c).window_height;
+            }
+            (*c).is_restored = 0;
+            if !(*c).egl_window.is_null() {
+        		wl_egl_window_resize((*c).egl_window, width, height, 0, 0);
+            }
+            (*c).window_width = width;
+            (*c).window_height = height;
+        } else {
+            (*c).window_width = (*c).restore_width;
+            (*c).window_height = (*c).restore_height;
+            (*c).is_restored = 1;
+            if !(*c).egl_window.is_null() {
+        		wl_egl_window_resize((*c).egl_window, (*c).restore_width, (*c).restore_height, 0, 0);
+            }
+        }
+	    glViewport(0, 0, (*c).window_width, (*c).window_height);
+    }
+}
+
+unsafe extern "C" fn toplevel_close(
+    c: *mut WaylandWindow,
+	zxdg_toplevel_v6: *mut c_void)
+{
+    (*c).running = 0;
+}
+
 pub(super) static mut SEAT_LISTENER: [*mut c_void; 2] =
     [seat_handle_capabilities as *mut _, std::ptr::null_mut()];
 
 pub(super) static mut REGISTRY_LISTENER: [*mut c_void; 2] = [
     registry_handle_global as *mut _,
     registry_handle_global_remove as *mut _,
+];
+
+static mut SURFACE_LISTENER: [*mut c_void; 1] = [
+    surface_configure as *mut _,
+];
+
+static mut TOPLEVEL_LISTENER: [*mut c_void; 2] = [
+    toplevel_configure as *mut _,
+    toplevel_close as *mut _,
 ];
 
 #[repr(C)]
@@ -569,7 +648,8 @@ pub struct WaylandWindow {
     pub(super) gl_pos: u32,
     pub(super) gl_col: u32,
 
-    pub(super) native: *mut c_void,        // wl_egl_window*
+    // NULL if not using EGL (NULL when using Vulkan + Wayland).
+    pub(super) egl_window: *mut c_void,    // wl_egl_window*
     pub(super) surface: *mut c_void,       // wl_surface*
     pub(super) shell_surface: *mut c_void, // wl_shell_surface*
 
@@ -617,8 +697,8 @@ impl Drop for WaylandWindow {
 }
 
 impl Nwin for WaylandWindow {
-    fn handle(&self) -> *mut c_void {
-        self.wldisplay
+    fn handle(&self) -> crate::NwinHandle {
+        crate::NwinHandle::Wayland(self.wldisplay)
     }
 }
 
@@ -651,7 +731,7 @@ pub(super) fn new() -> Option<Box<Nwin>> {
         gl_pos: 0,
         gl_col: 0,
 
-        native: std::ptr::null_mut(), // wl_egl_window*
+        egl_window: std::ptr::null_mut(), // wl_egl_window*
         surface: std::ptr::null_mut(), // wl_surface*
         shell_surface: std::ptr::null_mut(), // wl_shell_surface*
 
@@ -686,6 +766,47 @@ pub(super) fn new() -> Option<Box<Nwin>> {
         );
 
         wl_display_dispatch(nwin.wldisplay);
+    }
+
+    unsafe {
+        nwin.surface = wl_proxy_marshal_constructor(nwin.compositor,
+            0, &wl_surface_interface, std::ptr::null_mut());
+        nwin.cursor_surface = wl_proxy_marshal_constructor(nwin.compositor,
+            0, &wl_surface_interface, std::ptr::null_mut());
+    }
+
+    // Create shell_surface
+    unsafe {
+        extern "C" {
+            pub(super) fn wl_proxy_marshal_constructor(
+                name: *mut c_void,
+                opcode: u32,
+                interface: &WlInterface,
+                p: *mut c_void,
+                s: *mut c_void,
+            ) -> *mut c_void;
+        }
+
+        nwin.shell_surface = wl_proxy_marshal_constructor(nwin.shell,
+            2, &zxdg_surface_v6_interface, std::ptr::null_mut(), nwin.surface);
+
+        wl_proxy_add_listener(
+            nwin.shell_surface,
+            SURFACE_LISTENER.as_ptr(),
+            (*std::mem::transmute::<&Box<_>, &[*mut WaylandWindow; 2]>(&nwin))[0],
+        );
+    }
+
+    // Create toplevel
+    unsafe {
+        nwin.toplevel = wl_proxy_marshal_constructor(nwin.shell_surface,
+            1, &zxdg_toplevel_v6_interface, std::ptr::null_mut());
+
+        wl_proxy_add_listener(
+            nwin.toplevel,
+            TOPLEVEL_LISTENER.as_ptr(),
+            (*std::mem::transmute::<&Box<_>, &[*mut WaylandWindow; 2]>(&nwin))[0],
+        );
     }
 
     Some(nwin)

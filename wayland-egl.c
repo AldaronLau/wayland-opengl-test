@@ -319,14 +319,6 @@ init_gl(struct Context *context)
 		glGetUniformLocation(program, "rotation");
 }
 
-static void
-handle_ping(void *data, struct wl_shell_surface *shell_surface,
-	    uint32_t serial)
-{
-    printf("BYE %d!\n", serial);
-	wl_shell_surface_pong(shell_surface, serial);
-}
-
 static void redraw(void *data, struct wl_callback *callback, uint32_t time);
 
 static void handle_configure(void *data, struct wl_shell_surface *shell_surface,
@@ -361,10 +353,7 @@ static void handle_configure(void *data, struct wl_shell_surface *shell_surface,
     }
 }
 
-static void handle_popup_done(void *data, struct wl_shell_surface *shell_surface) {
-}
-
-static void toplevel_configure(void *data,
+/*static void toplevel_configure(void *data,
 			  void *zxdg_toplevel_v6,
 			  int32_t width,
 			  int32_t height,
@@ -399,32 +388,9 @@ static void toplevel_configure(void *data,
     }
 }
 
-static void toplevel_close(void *data,
-		      void *zxdg_toplevel_v6)
-{
-    struct Context* c = data;
-
-    c->running = 0;
-}
-
 static const struct zxdg_toplevel_v6_listener shell_surface_listener = {
-//	handle_ping,
 	toplevel_configure,
-    toplevel_close,
-//	handle_popup_done
-};
-
-static void surface_configure(void *data, void *zxdg_surface_v6,
-    uint32_t serial)
-{
-    printf("CONFIGUREING!!!\n");
-    // ZXDG_SURFACE_V6_ACK_CONFIGURE
-    wl_proxy_marshal((struct wl_proxy *) zxdg_surface_v6, 4, serial);
-}
-
-static const struct zxdg_surface_v6_listener surface_listener = {
-    surface_configure,
-};
+};*/
 
 static void
 handle_xdg_shell_ping(void *data, void *shell, uint32_t serial)
@@ -460,35 +426,18 @@ struct wl_callback_listener CONFIGURE_CALLBACK_LISTENER = {
 };
 
 static void create_surface(struct Context *context) {
-	context->surface = wl_compositor_create_surface(context->compositor);
-    context->shell_surface = wl_proxy_marshal_constructor(
-        (struct wl_proxy *) context->shell,
-        2 /*ZXDG_SHELL_V6_GET_XDG_SURFACE*/,
-        &zxdg_surface_v6_interface,
-        NULL,
-        context->surface
-    );
-
-    printf("Create XDG shell surface\n");
-
-    wl_proxy_add_listener((struct wl_proxy *) context->shell_surface,
- (void*)&surface_listener, context);
-
-    context->toplevel = wl_proxy_marshal_constructor(
-        (struct wl_proxy *) context->shell_surface,
-        1, &zxdg_toplevel_v6_interface, NULL);
-
-    wl_proxy_add_listener(context->toplevel, &shell_surface_listener, context);
-
 	context->native =
-		wl_egl_window_create(context->surface,
-				     context->window_width,
-				     context->window_height);
+		wl_egl_window_create(
+            context->surface,
+            context->window_width,
+            context->window_height
+        );
 	context->egl_surface =
-		eglCreateWindowSurface(context->egl_dpy,
-				       context->egl_conf,
-				       context->native, NULL);
-
+		eglCreateWindowSurface(
+            context->egl_dpy,
+            context->egl_conf,
+            context->native, NULL
+        );
 
     wl_proxy_marshal(context->toplevel, 2 /*SET_TITLE*/, "Cala Window");
     wl_proxy_marshal(context->toplevel, 3 /*SET_APPID = CLASS*/, "Cala Window");
@@ -509,10 +458,12 @@ static void create_surface(struct Context *context) {
 }
 
 static void destroy_surface(struct Context *context) {
+	wl_surface_destroy(context->surface);
 	wl_egl_window_destroy(context->native);
 
-	wl_shell_surface_destroy(context->shell_surface);
-	wl_surface_destroy(context->surface);
+    // Free
+	wl_proxy_marshal((struct wl_proxy *) context->shell_surface, 0);
+    wl_proxy_destroy((struct wl_proxy *) context->shell_surface);
 
 	if (context->callback)
 		wl_callback_destroy(context->callback);
@@ -592,8 +543,7 @@ printf("WHERE!\n");
 	init_gl(context);
 printf("WHY!\n");
 
-	context->cursor_surface =
-		wl_compositor_create_surface(context->compositor);
+
 printf("WHYSMTN!\n");
 	while (context->running) {
 		if (wl_display_dispatch(context->wldisplay) == -1) {
