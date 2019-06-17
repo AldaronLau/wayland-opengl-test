@@ -644,14 +644,23 @@ static mut TOPLEVEL_LISTENER: [*mut c_void; 2] =
 
 #[repr(C)]
 pub struct WaylandWindow {
+    // Is program still running?
     pub(super) running: i32,
+    // Is program restored (not fullscreen)?
     pub(super) is_restored: i32,
 
+    // Current window width.
     pub(super) window_width: i32,
+    // Current window height.
     pub(super) window_height: i32,
 
+    // Window width to restore (exit fullscreen) to.
     pub(super) restore_width: i32,
+    // Window height to restore (exit fullscreen) to.
     pub(super) restore_height: i32,
+
+    // Millisecond counter on last frame.
+    pub(super) last_millis: u32,
 
     pub(super) gl_rotation_uniform: u32,
     pub(super) gl_pos: u32,
@@ -735,6 +744,8 @@ pub(super) fn new() -> Option<Box<Nwin>> {
 
         restore_width: 640,
         restore_height: 360,
+
+        last_millis: 0,
 
         gl_rotation_uniform: 0,
         gl_pos: 0,

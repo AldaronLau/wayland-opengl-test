@@ -24,6 +24,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdbool.h>
+#include <stdint.h>
 #include <math.h>
 #include <assert.h>
 #include <signal.h>
@@ -188,14 +189,16 @@ struct zxdg_toplevel_v6_listener {
 // Wayland Client
 
 typedef struct Context {
-    int running;
-    int is_restored;
+    int32_t running;
+    int32_t is_restored;
 
-    int window_width;
-    int window_height;
+    int32_t window_width;
+    int32_t window_height;
 
-    int restore_width;
-    int restore_height;
+    int32_t restore_width;
+    int32_t restore_height;
+
+    uint32_t last_millis;
 
 	GLuint gl_rotation_uniform;
 	GLuint gl_pos;
@@ -417,12 +420,8 @@ void configure_callback(void *data, struct wl_callback *callback, uint32_t time)
     printf("GL2 %d %d\n", context->window_width, context->window_height);
     glViewport(0, 0, context->window_width, context->window_height);
 
-    printf("ZYAYA\n");
-
 	if (context->callback == NULL)
 		redraw(data, NULL, time);
-
-    printf("ZZXXXYAYA\n");
 }
 
 struct wl_callback_listener CONFIGURE_CALLBACK_LISTENER = {
@@ -476,7 +475,7 @@ static void destroy_surface(struct Context *context) {
 
 static const struct wl_callback_listener frame_listener;
 
-static void redraw(void *data, struct wl_callback *callback, uint32_t time) {
+static void redraw(void *data, struct wl_callback *callback, uint32_t millis) {
     struct Context* context = data;
 
 	static const GLfloat verts[3][2] = {
@@ -503,21 +502,32 @@ static void redraw(void *data, struct wl_callback *callback, uint32_t time) {
 	assert(context->callback == callback);
 	context->callback = NULL;
 
+    uint32_t diff_millis;
     if (callback != NULL) {
         if (start_time == 0) {
-            start_time = time;
+            start_time = millis;
+            diff_millis = 0;
+        } else {
+            // TODO: overflowing subtract.
+            diff_millis = millis - context->last_millis;
         }
 
 		wl_callback_destroy(callback);
     } else {
         printf("DOA\n");
-        time = 0;
+
+        diff_millis = 0;
     }
+    // works as long as diff_millis < 4295, should kill process if 200
+    // milliseconds passed.  Ideal: 16(64fps)-32(32fps) milliseconds.
+    uint32_t diff_nanos = diff_millis * 1000000;
+    printf("DIFF_NANOS %d\n", diff_nanos);
+    context->last_millis = millis;
 
 //    printf("KA: %d\n", time);
-    printf("%d %d\n", time - start_time, start_time);
+//    printf("%d %d\n", time - start_time, start_time);
 
-	angle = ((time-start_time) / speed_div) % 360 * M_PI / 180.0;
+	angle = ((millis-start_time) / speed_div) % 360 * M_PI / 180.0;
 	rotation[0][0] =  cos(angle);
 	rotation[0][2] =  sin(angle);
 	rotation[2][0] = -sin(angle);
