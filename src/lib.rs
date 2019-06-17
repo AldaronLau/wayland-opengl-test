@@ -5,17 +5,20 @@ mod wayland;
 
 mod opengl;
 
+use self::opengl::*;
 #[cfg(unix)]
 use self::wayland::*;
-use self::opengl::*;
 
 /// Native Window Handle.
 enum NwinHandle {
     /// Wayland window handle.
     #[cfg(all(
-        unix, not(
-            any(target_os = "android", target_os = "macos", target_os = "ios")
-        )
+        unix,
+        not(any(
+            target_os = "android",
+            target_os = "macos",
+            target_os = "ios"
+        ))
     ))]
     Wayland(*mut c_void),
 }
@@ -26,8 +29,8 @@ trait Nwin {
 }
 
 trait Draw {
-    // 
-//    fn 
+    //
+    //    fn
 }
 
 /// A window on the monitor.
@@ -47,17 +50,20 @@ pub fn start() -> Option<Window> {
     let mut win = None;
 
     // Try to initialize Wayland first.
-    #[cfg(unix)] {
+    #[cfg(unix)]
+    {
         win = win.or_else(wayland::new);
     }
 
     // Hopefully we found one of the backends.
     unsafe {
-        std::ptr::write(&mut window.nwin, win
-            .or_else(|| {
+        std::ptr::write(
+            &mut window.nwin,
+            win.or_else(|| {
                 eprintln!("Couldn't find a window manager.");
                 return None;
-            })?);
+            })?,
+        );
     }
 
     // // // // // //
@@ -72,18 +78,24 @@ pub fn start() -> Option<Window> {
 
     // Hopefully we found one of the backends.
     unsafe {
-        std::ptr::write(&mut window.draw, draw
-            .or_else(|| {
+        std::ptr::write(
+            &mut window.draw,
+            draw.or_else(|| {
                 eprintln!("Couldn't find a graphics API.");
                 return None;
-            })?);
+            })?,
+        );
     }
 
     // // // // // //
     // // // // // //
 
     unsafe {
-        wayland::dive_wayland((*std::mem::transmute::<&Box<_>, &[*mut wayland::WaylandWindow; 2]>(&window.nwin))[0]);
+        wayland::dive_wayland(
+            (*std::mem::transmute::<&Box<_>, &[*mut wayland::WaylandWindow; 2]>(
+                &window.nwin,
+            ))[0],
+        );
     }
 
     Some(window)

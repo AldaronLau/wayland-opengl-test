@@ -2,9 +2,9 @@ use std::ffi::c_void;
 
 #[cfg(target_platform = "windows")]
 mod native {
-//    typedef HDC     EGLNativeDisplayType;
-//    typedef HBITMAP EGLNativePixmapType;
-//    typedef HWND    EGLNativeWindowType;
+    //    typedef HDC     EGLNativeDisplayType;
+    //    typedef HBITMAP EGLNativePixmapType;
+    //    typedef HWND    EGLNativeWindowType;
 }
 
 #[cfg(target_arch = "wasm")]
@@ -47,12 +47,12 @@ typedef void               *EGLNativeWindowType;
 
 #[cfg(target_os = "android")]
 mod native {
-//    struct ANativeWindow;
-//    struct egl_native_pixmap_t;
+    //    struct ANativeWindow;
+    //    struct egl_native_pixmap_t;
 
     pub type NativeDisplayType = *mut c_void;
-//    typedef struct egl_native_pixmap_t*     EGLNativePixmapType;
-//    typedef struct ANativeWindow*           EGLNativeWindowType;
+    //    typedef struct egl_native_pixmap_t*     EGLNativePixmapType;
+    //    typedef struct ANativeWindow*           EGLNativeWindowType;
 }
 
 /*#elif defined(USE_OZONE)

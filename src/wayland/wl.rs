@@ -47,6 +47,6 @@ pub(crate) unsafe fn wl_surface_destroy(surface: *mut c_void) {
         fn wl_proxy_marshal(p: *mut c_void, opcode: u32) -> ();
     }
 
-	wl_proxy_marshal(surface, 0 /*WL_SURFACE_DESTROY*/);
-	super::wl_proxy_destroy(surface);
+    wl_proxy_marshal(surface, 0 /*WL_SURFACE_DESTROY*/);
+    super::wl_proxy_destroy(surface);
 }

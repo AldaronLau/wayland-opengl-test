@@ -417,8 +417,12 @@ void configure_callback(void *data, struct wl_callback *callback, uint32_t time)
     printf("GL2 %d %d\n", context->window_width, context->window_height);
     glViewport(0, 0, context->window_width, context->window_height);
 
+    printf("ZYAYA\n");
+
 	if (context->callback == NULL)
 		redraw(data, NULL, time);
+
+    printf("ZZXXXYAYA\n");
 }
 
 struct wl_callback_listener CONFIGURE_CALLBACK_LISTENER = {
@@ -455,6 +459,7 @@ static void create_surface(struct Context *context) {
 
 	struct wl_callback *callback = wl_display_sync(context->wldisplay);
 	wl_callback_add_listener(callback, &CONFIGURE_CALLBACK_LISTENER, context);
+    printf("OOF\n");
 }
 
 static void destroy_surface(struct Context *context) {
@@ -498,11 +503,19 @@ static void redraw(void *data, struct wl_callback *callback, uint32_t time) {
 	assert(context->callback == callback);
 	context->callback = NULL;
 
-	if (callback)
-		wl_callback_destroy(callback);
+    if (callback != NULL) {
+        if (start_time == 0) {
+            start_time = time;
+        }
 
-	if (start_time == 0)
-		start_time = time;
+		wl_callback_destroy(callback);
+    } else {
+        printf("DOA\n");
+        time = 0;
+    }
+
+//    printf("KA: %d\n", time);
+    printf("%d %d\n", time - start_time, start_time);
 
 	angle = ((time-start_time) / speed_div) % 360 * M_PI / 180.0;
 	rotation[0][0] =  cos(angle);
