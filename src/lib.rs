@@ -23,14 +23,29 @@ enum NwinHandle {
     Wayland(*mut c_void),
 }
 
+/// Drawing Context Handle.
+enum DrawHandle {
+    /// EGL or WGL handle.
+    #[cfg(not(any(target_os = "macos", target_os = "ios")))]
+    Gl(*mut c_void),
+    /// Vulkan
+    #[cfg(not(any(target_os = "macos", target_os = "ios")))]
+    Vulkan(*mut c_void),
+    /// Metal
+    #[cfg(any(target_os = "macos", target_os = "ios"))]
+    Metal(*mut c_void),
+}
+
 trait Nwin {
-    // Get a pointer that refers to this window for interfacing.
+    /// Get a pointer that refers to this window for interfacing.
     fn handle(&self) -> NwinHandle;
+    /// Connect window to the drawing context.
+    fn connect(&self, draw: DrawHandle);
 }
 
 trait Draw {
-    //
-    //    fn
+    // Get a pointer that refers to this graphics context for interfacing.
+    fn handle(&self) -> DrawHandle;
 }
 
 /// A window on the monitor.
@@ -42,10 +57,14 @@ pub struct Window {
 
 /// Start the Wayland + OpenGL application.
 pub fn start() -> Option<Window> {
+    /*********************/
+    /* Declare Variables */
+    /*********************/
     let mut window: Window = unsafe { std::mem::zeroed() };
 
-    // // // // // //
-    // // // // // //
+    /*********************/
+    /* Create The Window */
+    /*********************/
 
     let mut win = None;
 
@@ -66,8 +85,9 @@ pub fn start() -> Option<Window> {
         );
     }
 
-    // // // // // //
-    // // // // // //
+    /*********************/
+    /* Connect Rendering */
+    /*********************/
 
     let mut draw = None;
 
@@ -87,8 +107,9 @@ pub fn start() -> Option<Window> {
         );
     }
 
-    // // // // // //
-    // // // // // //
+    /*********************/
+    /* Enter Render Loop */
+    /*********************/
 
     unsafe {
         wayland::dive_wayland(

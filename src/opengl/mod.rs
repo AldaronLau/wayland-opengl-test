@@ -3,6 +3,7 @@ use std::ffi::c_void;
 use super::Draw;
 use super::Nwin;
 use super::Window;
+use super::DrawHandle;
 
 mod platform;
 
@@ -38,7 +39,12 @@ impl Drop for OpenGL {
     fn drop(&mut self) {}
 }
 
-impl Draw for OpenGL {}
+impl Draw for OpenGL {
+    fn handle(&self) -> DrawHandle {
+        // TODO
+        DrawHandle::Gl(std::ptr::null_mut())
+    }
+}
 
 #[cfg(unix)]
 pub(super) fn new(window: &mut Window) -> Option<Box<Draw>> {

@@ -82,25 +82,9 @@ extern "C" {
     fn glViewport(x: i32, y: i32, width: i32, height: i32);
 }
 
-/*unsafe extern "C" fn configure_callback(c: *mut WaylandWindow,
-    callback: *mut c_void, time: u32)
-{
-    wl_callback_destroy(callback);
-
-    printf("GL2 %d %d\n", (*c).window_width, (*c).window_height);
-    glViewport(0, 0, (*c).window_width, (*c).window_height);
-
-    if ((*c).callback == NULL)
-        redraw(c, std::ptr::null_mut(), time);
-}
-
-static CONFIGURE_CALLBACK_LISTENER: [*mut c_void; 1] = [
-    configure_callback,
-];*/
-
 extern "C" {
-    static CONFIGURE_CALLBACK_LISTENER: [*mut c_void; 1];
     static XDG_SHELL_LISTENER: [*mut c_void; 1];
+    fn redraw(c: *mut WaylandWindow, callback: *mut c_void, millis: u32) -> ();
 }
 
 unsafe extern "C" fn pointer_handle_enter(
@@ -253,6 +237,24 @@ unsafe extern "C" fn pointer_handle_axis(
 ) {
 }
 
+unsafe extern "C" fn configure_callback(
+    c: *mut WaylandWindow,
+    callback: *mut c_void,
+    time: u32,
+) {
+    wl_proxy_destroy(callback);
+
+    glViewport(0, 0, (*c).window_width, (*c).window_height);
+
+    if (*c).callback.is_null() {
+        redraw(c, std::ptr::null_mut(), time);
+    }
+}
+
+static mut CONFIGURE_CALLBACK_LISTENER: [*mut c_void; 1] = [
+    configure_callback as *mut _,
+];
+
 static mut POINTER_LISTENER: [*mut c_void; 9] = [
     pointer_handle_enter as *mut _,
     pointer_handle_leave as *mut _,
@@ -388,13 +390,11 @@ unsafe extern "C" fn keyboard_handle_key(
             std::ptr::null_mut(),
         );
 
-        println!("CONFIGYO");
         wl_proxy_add_listener(
             callback,
             CONFIGURE_CALLBACK_LISTENER.as_ptr(),
             c,
         );
-        println!("CONFIGYA");
     }
 }
 
@@ -492,8 +492,6 @@ unsafe extern "C" fn registry_handle_global(
         );
     } else if strcmp(interface, b"zxdg_shell_v6\0" as *const _ as *const _) == 0
     {
-        println!("Initializing XDG-SHELL");
-
         (*c).shell = wl_proxy_marshal_constructor_versioned(
             registry,
             0, /*WL_REGISTRY_BIND*/
@@ -506,19 +504,6 @@ unsafe extern "C" fn registry_handle_global(
         );
 
         wl_proxy_add_listener((*c).shell, XDG_SHELL_LISTENER.as_ptr(), c);
-
-        println!("Initialized XDG-SHELL");
-    } else if strcmp(interface, b"wl_shell\0" as *const _ as *const _) == 0 {
-        /*        (*c).shell = wl_proxy_marshal_constructor_versioned(
-            registry,
-            0, /*WL_REGISTRY_BIND*/
-            &wl_shell_interface,
-            1,
-            name,
-            wl_shell_interface.name,
-            1,
-            std::ptr::null_mut(),
-        );*/
     } else if strcmp(interface, b"wl_seat\0" as *const _ as *const _) == 0 {
         (*c).seat = wl_proxy_marshal_constructor_versioned(
             registry,
@@ -543,7 +528,6 @@ unsafe extern "C" fn registry_handle_global(
             1,
             std::ptr::null_mut(),
         );
-
         (*c).cursor_theme =
             wl_cursor_theme_load(std::ptr::null_mut(), 16, (*c).shm);
         if (*c).cursor_theme.is_null() {
@@ -718,6 +702,10 @@ impl Nwin for WaylandWindow {
     fn handle(&self) -> crate::NwinHandle {
         crate::NwinHandle::Wayland(self.wldisplay)
     }
+
+    fn connect(&self, handle: crate::DrawHandle) {
+        // TODO
+    }
 }
 
 pub(super) fn new() -> Option<Box<Nwin>> {
@@ -844,6 +832,54 @@ pub(super) fn new() -> Option<Box<Nwin>> {
         wl_proxy_add_listener(
             nwin.toplevel,
             TOPLEVEL_LISTENER.as_ptr(),
+            (*std::mem::transmute::<&Box<_>, &[*mut WaylandWindow; 2]>(&nwin))
+                [0],
+        );
+    }
+
+    let window_title = "Cala Window 🙂️\0";
+
+    // Set window title.
+    unsafe {
+        extern "C" {
+            fn wl_proxy_marshal(
+                p: *mut c_void,
+                opcode: u32,
+                a: *const c_void,
+            ) -> ();
+        }
+
+        // Set Window Title.
+        wl_proxy_marshal(nwin.toplevel, 2, window_title.as_ptr() as *const _);
+        // Set App Title.
+        wl_proxy_marshal(nwin.toplevel, 3, window_title.as_ptr() as *const _);
+    }
+
+    // Maximize window.
+    unsafe {
+        extern "C" {
+            fn wl_proxy_marshal(
+                p: *mut c_void,
+                opcode: u32,
+            ) -> ();
+        }
+
+        // Set Maximized.
+        wl_proxy_marshal(nwin.toplevel, 9);
+    }
+
+    // Show window.
+    unsafe {
+        let callback = wl_proxy_marshal_constructor(
+            nwin.wldisplay,
+            0, /*WL_DISPLAY_SYNC*/
+            &wl_callback_interface,
+            std::ptr::null_mut(),
+        );
+
+        wl_proxy_add_listener(
+            callback,
+            CONFIGURE_CALLBACK_LISTENER.as_ptr(),
             (*std::mem::transmute::<&Box<_>, &[*mut WaylandWindow; 2]>(&nwin))
                 [0],
         );

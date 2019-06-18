@@ -322,78 +322,7 @@ init_gl(struct Context *context)
 		glGetUniformLocation(program, "rotation");
 }
 
-static void redraw(void *data, struct wl_callback *callback, uint32_t time);
-
-static void handle_configure(void *data, struct wl_shell_surface *shell_surface,
-    uint32_t edges, int32_t width, int32_t height)
-{
-    struct Context* c = data;
-
-	if (c->native && c->configured) {
-		wl_egl_window_resize(c->native, width, height, 0, 0);
-        c->configured = 0;
-        c->window_width = width;
-        c->window_height = height;
-    } else {
-        if (c->fullscreen) {
-        } else if (width != 0 && height != 0) {
-            if (c->is_restored) {
-                c->restore_width = c->window_width;
-                c->restore_height = c->window_height;
-            }
-            c->is_restored = 0;
-    		wl_egl_window_resize(c->native, width, height, 0, 0);
-            c->window_width = width;
-            c->window_height = height;
-        } else {
-            c->window_width = c->restore_width;
-            c->window_height = c->restore_height;
-            c->is_restored = 1;
-    		wl_egl_window_resize(c->native, c->restore_width, c->restore_height, 0, 0);
-        }
-//        printf("GL %d %d\n", c->window_width, c->window_height);
-	    glViewport(0, 0, c->window_width, c->window_height);
-    }
-}
-
-/*static void toplevel_configure(void *data,
-			  void *zxdg_toplevel_v6,
-			  int32_t width,
-			  int32_t height,
-			  struct wl_array *states)
-{
-    struct Context* c = data;
-
-	if (c->native && c->configured) {
-		wl_egl_window_resize(c->native, width, height, 0, 0);
-        c->configured = 0;
-        c->window_width = width;
-        c->window_height = height;
-    } else {
-        if (c->fullscreen) {
-        } else if (width != 0 && height != 0) {
-            if (c->is_restored) {
-                c->restore_width = c->window_width;
-                c->restore_height = c->window_height;
-            }
-            c->is_restored = 0;
-    		wl_egl_window_resize(c->native, width, height, 0, 0);
-            c->window_width = width;
-            c->window_height = height;
-        } else {
-            c->window_width = c->restore_width;
-            c->window_height = c->restore_height;
-            c->is_restored = 1;
-    		wl_egl_window_resize(c->native, c->restore_width, c->restore_height, 0, 0);
-        }
-//        printf("GL %d %d\n", c->window_width, c->window_height);
-	    glViewport(0, 0, c->window_width, c->window_height);
-    }
-}
-
-static const struct zxdg_toplevel_v6_listener shell_surface_listener = {
-	toplevel_configure,
-};*/
+void redraw(void *data, struct wl_callback *callback, uint32_t time);
 
 static void
 handle_xdg_shell_ping(void *data, void *shell, uint32_t serial)
@@ -435,29 +364,17 @@ static void create_surface(struct Context *context) {
             context->window_width,
             context->window_height
         );
+
 	context->egl_surface =
 		eglCreateWindowSurface(
             context->egl_dpy,
             context->egl_conf,
             context->native, NULL
         );
-
-    wl_proxy_marshal(context->toplevel, 2 /*SET_TITLE*/, "Cala Window");
-    wl_proxy_marshal(context->toplevel, 3 /*SET_APPID = CLASS*/, "Cala Window");
-    wl_proxy_marshal(
-        context->toplevel,
-        9 /*ZXDG_TOPLEVEL_V6_SET_MAXIMIZED*/
-    );
-
-    wl_surface_commit(context->surface);
-
 	EGLBoolean ret;
 	ret = eglMakeCurrent(context->egl_dpy, context->egl_surface,
 			     context->egl_surface, context->egl_ctx);
-	assert(ret == EGL_TRUE);
-
-	struct wl_callback *callback = wl_display_sync(context->wldisplay);
-	wl_callback_add_listener(callback, &CONFIGURE_CALLBACK_LISTENER, context);
+	assert(ret != 0);
     printf("OOF\n");
 }
 
@@ -475,7 +392,7 @@ static void destroy_surface(struct Context *context) {
 
 static const struct wl_callback_listener frame_listener;
 
-static void redraw(void *data, struct wl_callback *callback, uint32_t millis) {
+void redraw(void *data, struct wl_callback *callback, uint32_t millis) {
     struct Context* context = data;
 
 	static const GLfloat verts[3][2] = {
@@ -497,7 +414,6 @@ static void redraw(void *data, struct wl_callback *callback, uint32_t millis) {
 	};
 	static const int32_t speed_div = 5;
 	static uint32_t start_time = 0;
-//	struct wl_region *region;
 
 	assert(context->callback == callback);
 	context->callback = NULL;
@@ -514,8 +430,6 @@ static void redraw(void *data, struct wl_callback *callback, uint32_t millis) {
 
 		wl_callback_destroy(callback);
     } else {
-        printf("DOA\n");
-
         diff_millis = 0;
     }
     // works as long as diff_millis < 4295, should kill process if 200
@@ -523,9 +437,6 @@ static void redraw(void *data, struct wl_callback *callback, uint32_t millis) {
     uint32_t diff_nanos = diff_millis * 1000000;
     printf("DIFF_NANOS %d\n", diff_nanos);
     context->last_millis = millis;
-
-//    printf("KA: %d\n", time);
-//    printf("%d %d\n", time - start_time, start_time);
 
 	angle = ((millis-start_time) / speed_div) % 360 * M_PI / 180.0;
 	rotation[0][0] =  cos(angle);
@@ -560,14 +471,14 @@ static const struct wl_callback_listener frame_listener = {
 };
 
 void dive_wayland(Context* context) {
-printf("WHEN!\n");
 	create_surface(context);
-printf("WHERE!\n");
+
+    printf("WHERE!\n");
+
 	init_gl(context);
-printf("WHY!\n");
 
+    printf("WHY!\n");
 
-printf("WHYSMTN!\n");
 	while (context->running) {
 		if (wl_display_dispatch(context->wldisplay) == -1) {
             break;
