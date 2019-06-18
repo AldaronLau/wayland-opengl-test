@@ -38,154 +38,6 @@
 #include <GLES2/gl2.h>
 #include <EGL/egl.h>
 
-// XDG-parts
-
-extern const struct wl_interface wl_output_interface;
-extern const struct wl_interface wl_seat_interface;
-extern const struct wl_interface wl_surface_interface;
-extern const struct wl_interface zxdg_popup_v6_interface;
-extern const struct wl_interface zxdg_positioner_v6_interface;
-extern const struct wl_interface zxdg_surface_v6_interface;
-extern const struct wl_interface zxdg_toplevel_v6_interface;
-
-static const struct wl_interface *types[] = {
-	NULL,
-	NULL,
-	NULL,
-	NULL,
-	&zxdg_positioner_v6_interface,
-	&zxdg_surface_v6_interface,
-	&wl_surface_interface,
-	&zxdg_toplevel_v6_interface,
-	&zxdg_popup_v6_interface,
-	&zxdg_surface_v6_interface,
-	&zxdg_positioner_v6_interface,
-	&zxdg_toplevel_v6_interface,
-	&wl_seat_interface,
-	NULL,
-	NULL,
-	NULL,
-	&wl_seat_interface,
-	NULL,
-	&wl_seat_interface,
-	NULL,
-	NULL,
-	&wl_output_interface,
-	&wl_seat_interface,
-	NULL,
-};
-
-static const struct wl_message zxdg_shell_v6_requests[] = {
-	{ "destroy", "", types + 0 },
-	{ "create_positioner", "n", types + 4 },
-	{ "get_xdg_surface", "no", types + 5 },
-	{ "pong", "u", types + 0 },
-};
-
-static const struct wl_message zxdg_shell_v6_events[] = {
-	{ "ping", "u", types + 0 },
-};
-
-const struct wl_interface zxdg_shell_v6_interface = {
-	"zxdg_shell_v6", 1,
-	4, zxdg_shell_v6_requests,
-	1, zxdg_shell_v6_events,
-};
-
-static const struct wl_message zxdg_positioner_v6_requests[] = {
-	{ "destroy", "", types + 0 },
-	{ "set_size", "ii", types + 0 },
-	{ "set_anchor_rect", "iiii", types + 0 },
-	{ "set_anchor", "u", types + 0 },
-	{ "set_gravity", "u", types + 0 },
-	{ "set_constraint_adjustment", "u", types + 0 },
-	{ "set_offset", "ii", types + 0 },
-};
-
-const struct wl_interface zxdg_positioner_v6_interface = {
-	"zxdg_positioner_v6", 1,
-	7, zxdg_positioner_v6_requests,
-	0, NULL,
-};
-
-static const struct wl_message zxdg_surface_v6_requests[] = {
-	{ "destroy", "", types + 0 },
-	{ "get_toplevel", "n", types + 7 },
-	{ "get_popup", "noo", types + 8 },
-	{ "set_window_geometry", "iiii", types + 0 },
-	{ "ack_configure", "u", types + 0 },
-};
-
-static const struct wl_message zxdg_surface_v6_events[] = {
-	{ "configure", "u", types + 0 },
-};
-
-const struct wl_interface zxdg_surface_v6_interface = {
-	"zxdg_surface_v6", 1,
-	5, zxdg_surface_v6_requests,
-	1, zxdg_surface_v6_events,
-};
-
-static const struct wl_message zxdg_toplevel_v6_requests[] = {
-	{ "destroy", "", types + 0 },
-	{ "set_parent", "?o", types + 11 },
-	{ "set_title", "s", types + 0 },
-	{ "set_app_id", "s", types + 0 },
-	{ "show_window_menu", "ouii", types + 12 },
-	{ "move", "ou", types + 16 },
-	{ "resize", "ouu", types + 18 },
-	{ "set_max_size", "ii", types + 0 },
-	{ "set_min_size", "ii", types + 0 },
-	{ "set_maximized", "", types + 0 },
-	{ "unset_maximized", "", types + 0 },
-	{ "set_fullscreen", "?o", types + 21 },
-	{ "unset_fullscreen", "", types + 0 },
-	{ "set_minimized", "", types + 0 },
-};
-
-static const struct wl_message zxdg_toplevel_v6_events[] = {
-	{ "configure", "iia", types + 0 },
-	{ "close", "", types + 0 },
-};
-
-const struct wl_interface zxdg_toplevel_v6_interface = {
-	"zxdg_toplevel_v6", 1,
-	14, zxdg_toplevel_v6_requests,
-	2, zxdg_toplevel_v6_events,
-};
-
-static const struct wl_message zxdg_popup_v6_requests[] = {
-	{ "destroy", "", types + 0 },
-	{ "grab", "ou", types + 22 },
-};
-
-static const struct wl_message zxdg_popup_v6_events[] = {
-	{ "configure", "iiii", types + 0 },
-	{ "popup_done", "", types + 0 },
-};
-
-const struct wl_interface zxdg_popup_v6_interface = {
-	"zxdg_popup_v6", 1,
-	2, zxdg_popup_v6_requests,
-	2, zxdg_popup_v6_events,
-};
-
-struct zxdg_surface_v6_listener {
-	void (*configure)(void *data,
-			  void *zxdg_surface_v6,
-			  uint32_t serial);
-};
-
-struct zxdg_toplevel_v6_listener {
-	void (*configure)(void *data,
-			  void *zxdg_toplevel_v6,
-			  int32_t width,
-			  int32_t height,
-			  struct wl_array *states);
-	void (*close)(void *data,
-		      void *zxdg_toplevel_v6);
-};
-
 // Wayland Client
 
 typedef struct Context {
@@ -320,20 +172,6 @@ static void init_gl(struct Context *context) {
 		glGetUniformLocation(program, "rotation");
 }
 
-static void handle_xdg_shell_ping(void *data, void *shell, uint32_t serial) {
-    // PONG
-	wl_proxy_marshal((struct wl_proxy *) shell,
-        3 /*ZXDG_SHELL_V6_PONG*/, serial);
-}
-
-struct zxdg_shell_v6_listener {
-	void (*ping)(void *data, void *shell, uint32_t serial);
-};
-
-const struct zxdg_shell_v6_listener XDG_SHELL_LISTENER = {
-   handle_xdg_shell_ping,
-};
-
 static void create_surface(struct Context *context) {
 	context->native =
 		wl_egl_window_create(
@@ -400,7 +238,7 @@ void redraw(void *data, struct wl_callback *callback, uint32_t millis) {
     // works as long as diff_millis < 4295, should kill process if 200
     // milliseconds passed.  Ideal: 16(64fps)-32(32fps) milliseconds.
     uint32_t diff_nanos = diff_millis * 1000000;
-    printf("DIFF_NANOS %d\n", diff_nanos);
+//    printf("DIFF_NANOS %d\n", diff_nanos);
     context->last_millis = millis;
 
 	angle = ((millis-start_time) / speed_div) % 360 * M_PI / 180.0;

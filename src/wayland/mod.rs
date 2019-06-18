@@ -25,9 +25,6 @@ extern "C" {
     static wl_keyboard_interface: WlInterface;
     static wl_touch_interface: WlInterface;
     static wl_callback_interface: WlInterface;
-    static zxdg_shell_v6_interface: WlInterface;
-    static zxdg_surface_v6_interface: WlInterface;
-    static zxdg_toplevel_v6_interface: WlInterface;
     static wl_surface_interface: WlInterface;
 
     pub(super) fn wl_display_connect(name: *mut c_void) -> *mut c_void;
@@ -84,9 +81,194 @@ extern "C" {
 }
 
 extern "C" {
-    static XDG_SHELL_LISTENER: [*mut c_void; 1];
     fn redraw(c: *mut WaylandWindow, callback: *mut c_void, millis: u32) -> ();
 }
+
+static mut ZXDG_SURFACE_V6_INTERFACE: WlInterface = WlInterface {
+    /** Interface name */
+    name: b"zxdg_surface_v6\0".as_ptr() as *const _,
+    /** Interface version */
+    version: 1,
+    /** Number of methods (requests) */
+    method_count: 5,
+    /** Method (request) signatures */
+    methods: [
+	    WlMessage {
+            name: b"destroy\0".as_ptr() as *const _,
+            signature: b"\0".as_ptr() as *const _,
+            wl_interface: std::ptr::null()
+        },
+	    WlMessage {
+            name: b"get_toplevel\0".as_ptr() as *const _,
+            signature: b"n\0".as_ptr() as *const _,
+            wl_interface: unsafe { &(&wl_surface_interface as *const _) },
+        },
+	    WlMessage {
+            name: b"get_popup\0".as_ptr() as *const _,
+            signature: b"noo\0".as_ptr() as *const _,
+            wl_interface: unsafe { &(&zxdg_toplevel_v6_interface as *const _) },
+        },
+	    WlMessage {
+            name: b"set_window_geometry\0".as_ptr() as *const _,
+            signature: b"iiii\0".as_ptr() as *const _,
+            wl_interface: std::ptr::null(),
+        },
+	    WlMessage {
+            name: b"ack_configure\0".as_ptr() as *const _,
+            signature: b"u\0".as_ptr() as *const _,
+            wl_interface: std::ptr::null(),
+        },
+    ].as_ptr(),
+    /** Number of events */
+    event_count: 1,
+    /** Event signatures */
+    events: [
+        WlMessage {
+            name: b"configure\0".as_ptr() as *const _,
+            signature: b"u\0".as_ptr() as *const _,
+            wl_interface: std::ptr::null(),
+        },
+    ].as_ptr(), // *wl_message
+};
+
+static mut zxdg_toplevel_v6_interface: WlInterface = WlInterface {
+    /** Interface name */
+    name: b"zxdg_toplevel_v6\0".as_ptr() as *const _,
+    /** Interface version */
+    version: 1,
+    /** Number of methods (requests) */
+    method_count: 14,
+    /** Method (request) signatures */
+    methods: [
+	    WlMessage {
+            name: b"destroy\0".as_ptr() as *const _,
+            signature: b"\0".as_ptr() as *const _,
+            wl_interface: std::ptr::null()
+        },
+	    WlMessage {
+            name: b"set_parent\0".as_ptr() as *const _,
+            signature: b"?o\0".as_ptr() as *const _,
+            wl_interface: std::ptr::null()
+        },
+	    WlMessage {
+            name: b"set_title\0".as_ptr() as *const _,
+            signature: b"s\0".as_ptr() as *const _,
+            wl_interface: std::ptr::null()
+        },
+	    WlMessage {
+            name: b"set_app_id\0".as_ptr() as *const _,
+            signature: b"s\0".as_ptr() as *const _,
+            wl_interface: std::ptr::null()
+        },
+	    WlMessage {
+            name: b"show_window_menu\0".as_ptr() as *const _,
+            signature: b"ouii\0".as_ptr() as *const _,
+            wl_interface: std::ptr::null()
+        },
+	    WlMessage {
+            name: b"move\0".as_ptr() as *const _,
+            signature: b"ou\0".as_ptr() as *const _,
+            wl_interface: std::ptr::null()
+        },
+	    WlMessage {
+            name: b"resize\0".as_ptr() as *const _,
+            signature: b"ouu\0".as_ptr() as *const _,
+            wl_interface: std::ptr::null()
+        },
+	    WlMessage {
+            name: b"set_max_size\0".as_ptr() as *const _,
+            signature: b"ii\0".as_ptr() as *const _,
+            wl_interface: std::ptr::null()
+        },
+	    WlMessage {
+            name: b"set_min_size\0".as_ptr() as *const _,
+            signature: b"ii\0".as_ptr() as *const _,
+            wl_interface: std::ptr::null()
+        },
+	    WlMessage {
+            name: b"set_maximized\0".as_ptr() as *const _,
+            signature: b"\0".as_ptr() as *const _,
+            wl_interface: std::ptr::null()
+        },
+	    WlMessage {
+            name: b"unset_maximized\0".as_ptr() as *const _,
+            signature: b"\0".as_ptr() as *const _,
+            wl_interface: std::ptr::null()
+        },
+	    WlMessage {
+            name: b"set_fullscreen\0".as_ptr() as *const _,
+            signature: b"?o\0".as_ptr() as *const _,
+            wl_interface: std::ptr::null()
+        },
+	    WlMessage {
+            name: b"unset_fullscreen\0".as_ptr() as *const _,
+            signature: b"\0".as_ptr() as *const _,
+            wl_interface: std::ptr::null()
+        },
+	    WlMessage {
+            name: b"set_minimized\0".as_ptr() as *const _,
+            signature: b"\0".as_ptr() as *const _,
+            wl_interface: std::ptr::null()
+        },
+    ].as_ptr(),
+    /** Number of events */
+    event_count: 2,
+    /** Event signatures */
+    events: [
+        WlMessage {
+            name: b"configure\0".as_ptr() as *const _,
+            signature: b"iia\0".as_ptr() as *const _,
+            wl_interface: std::ptr::null(),
+        },
+        WlMessage {
+            name: b"close\0".as_ptr() as *const _,
+            signature: b"\0".as_ptr() as *const _,
+            wl_interface: std::ptr::null(),
+        },
+    ].as_ptr(), // *wl_message
+};
+
+static mut ZXDG_SHELL_V6_INTERFACE: WlInterface = WlInterface {
+    /** Interface name */
+    name: b"zxdg_shell_v6\0".as_ptr() as *const _,
+    /** Interface version */
+    version: 1,
+    /** Number of methods (requests) */
+    method_count: 4,
+    /** Method (request) signatures */
+    methods: [
+	    WlMessage {
+            name: b"destroy\0".as_ptr() as *const _,
+            signature: b"\0".as_ptr() as *const _,
+            wl_interface: std::ptr::null()
+        },
+	    WlMessage {
+            name: b"create_positioner\0".as_ptr() as *const _,
+            signature: b"n\0".as_ptr() as *const _,
+            wl_interface: unsafe { &(&wl_surface_interface as *const _) },
+        },
+	    WlMessage {
+            name: b"get_xdg_surface\0".as_ptr() as *const _,
+            signature: b"no\0".as_ptr() as *const _,
+            wl_interface: unsafe { &(&zxdg_toplevel_v6_interface as *const _) },
+        },
+	    WlMessage {
+            name: b"pong\0".as_ptr() as *const _,
+            signature: b"u\0".as_ptr() as *const _,
+            wl_interface: std::ptr::null(),
+        },
+    ].as_ptr(),
+    /** Number of events */
+    event_count: 1,
+    /** Event signatures */
+    events: [
+        WlMessage {
+            name: b"ping\0".as_ptr() as *const _,
+            signature: b"u\0".as_ptr() as *const _,
+            wl_interface: std::ptr::null(),
+        },
+    ].as_ptr(), // *wl_message
+};
 
 unsafe extern "C" fn pointer_handle_enter(
     c: *mut WaylandWindow,
@@ -215,17 +397,25 @@ unsafe extern "C" fn pointer_handle_button(
         ) -> ();
     }
 
-    if button == BTN_LEFT {
-        if state == 1
-        /*pressed*/
-        {
-            wl_proxy_marshal(
-                (*c).toplevel,
-                5, /*ZXDG_TOPLEVEL_V6_MOVE*/
-                (*c).seat,
-                serial,
-            );
+    match button {
+        BTN_LEFT => {
+            // pressed.
+            if state != 0 {
+                println!("Press");
+/*                wl_proxy_marshal(
+                    (*c).toplevel,
+                    5, /*ZXDG_TOPLEVEL_V6_MOVE*/
+                    (*c).seat,
+                    serial,
+                );*/
+            } else {
+                println!("Release");
+            }
         }
+        BTN_RIGHT => {}
+        BTN_MIDDLE => {}
+        BTN_SIDE => {}
+        _ => { eprintln!("Unknown") },
     }
 }
 
@@ -251,6 +441,26 @@ unsafe extern "C" fn configure_callback(
         redraw(c, std::ptr::null_mut(), time);
     }
 }
+
+unsafe extern "C" fn handle_xdg_shell_ping(
+    data: *mut c_void,
+    shell: *mut c_void,
+    serial: u32,
+) {
+    extern "C" {
+        fn wl_proxy_marshal(
+            p: *mut c_void,
+            opcode: u32,
+            b: u32,
+        ) -> ();
+    }
+
+	wl_proxy_marshal(shell, 3 /*ZXDG_SHELL_V6_PONG*/, serial);
+}
+
+static mut XDG_SHELL_LISTENER: [*mut c_void; 1] = [
+    handle_xdg_shell_ping as *mut _,
+];
 
 static mut CONFIGURE_CALLBACK_LISTENER: [*mut c_void; 1] = [
     configure_callback as *mut _,
@@ -496,10 +706,10 @@ unsafe extern "C" fn registry_handle_global(
         (*c).shell = wl_proxy_marshal_constructor_versioned(
             registry,
             0, /*WL_REGISTRY_BIND*/
-            &zxdg_shell_v6_interface,
+            &ZXDG_SHELL_V6_INTERFACE,
             1,
             name,
-            zxdg_shell_v6_interface.name,
+            ZXDG_SHELL_V6_INTERFACE.name,
             1,
             std::ptr::null_mut(),
         );
@@ -829,7 +1039,7 @@ pub(super) fn new() -> Option<Box<Nwin>> {
         nwin.shell_surface = wl_proxy_marshal_constructor(
             nwin.shell,
             2,
-            &zxdg_surface_v6_interface,
+            &ZXDG_SURFACE_V6_INTERFACE,
             std::ptr::null_mut(),
             nwin.surface,
         );

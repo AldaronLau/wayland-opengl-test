@@ -11,6 +11,16 @@ pub(crate) enum WlSeatCapability {
 }
 
 #[repr(C)]
+pub(crate) struct WlMessage {
+	/** Message name */
+	pub(crate) name: *const c_void,
+	/** Message signature */
+	pub(crate) signature: *const c_void,
+	/** Object argument interfaces */
+	pub(crate) wl_interface: *const *const WlInterface,
+}
+
+#[repr(C)]
 pub(crate) struct WlInterface {
     /** Interface name */
     pub(crate) name: *const c_void,
@@ -19,11 +29,11 @@ pub(crate) struct WlInterface {
     /** Number of methods (requests) */
     pub(crate) method_count: i32,
     /** Method (request) signatures */
-    pub(crate) methods: *const c_void, // *wl_message
+    pub(crate) methods: *const WlMessage, // *wl_message
     /** Number of events */
     pub(crate) event_count: i32,
     /** Event signatures */
-    pub(crate) events: *const c_void, // *wl_message
+    pub(crate) events: *const WlMessage, // *wl_message
 }
 
 #[repr(C)]
