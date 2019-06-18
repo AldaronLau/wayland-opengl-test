@@ -79,7 +79,8 @@ extern "C" {
         dx: i32,
         dy: i32,
     ) -> ();
-    fn glViewport(x: i32, y: i32, width: i32, height: i32);
+    fn wl_egl_window_destroy(egl_window: *mut c_void) -> ();
+    fn glViewport(x: i32, y: i32, width: i32, height: i32) -> ();
 }
 
 extern "C" {
@@ -680,7 +681,27 @@ pub struct WaylandWindow {
 
 impl Drop for WaylandWindow {
     fn drop(&mut self) {
+        extern "C" {
+            fn wl_proxy_marshal(
+                p: *mut c_void,
+                opcode: u32,
+            ) -> ();
+        }
+
         unsafe {
+            // 
+	        wl_surface_destroy(self.surface);
+	        wl_egl_window_destroy(self.egl_window);
+
+            // Free
+	        wl_proxy_marshal(self.shell_surface, 0);
+            wl_proxy_destroy(self.shell_surface);
+
+	        if !self.callback.is_null() {
+		        wl_proxy_destroy(self.callback);
+            }
+
+            // ---
             wl_surface_destroy(self.cursor_surface);
             if !self.cursor_theme.is_null() {
                 wl_cursor_theme_destroy(self.cursor_theme);
@@ -695,6 +716,7 @@ impl Drop for WaylandWindow {
             wl_display_flush(self.wldisplay);
             wl_display_disconnect(self.wldisplay);
         }
+        println!("Drop Widnow");
     }
 }
 

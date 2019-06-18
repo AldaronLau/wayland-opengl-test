@@ -285,9 +285,7 @@ static GLuint create_shader(const char *source, GLenum shader_type) {
 	return shader;
 }
 
-static void
-init_gl(struct Context *context)
-{
+static void init_gl(struct Context *context) {
 	GLuint frag, vert;
 	GLuint program;
 	GLint status;
@@ -322,11 +320,7 @@ init_gl(struct Context *context)
 		glGetUniformLocation(program, "rotation");
 }
 
-void redraw(void *data, struct wl_callback *callback, uint32_t time);
-
-static void
-handle_xdg_shell_ping(void *data, void *shell, uint32_t serial)
-{
+static void handle_xdg_shell_ping(void *data, void *shell, uint32_t serial) {
     // PONG
 	wl_proxy_marshal((struct wl_proxy *) shell,
         3 /*ZXDG_SHELL_V6_PONG*/, serial);
@@ -338,23 +332,6 @@ struct zxdg_shell_v6_listener {
 
 const struct zxdg_shell_v6_listener XDG_SHELL_LISTENER = {
    handle_xdg_shell_ping,
-};
-
-void configure_callback(void *data, struct wl_callback *callback, uint32_t time)
-{
-    struct Context* context = data;
-
-	wl_callback_destroy(callback);
-
-    printf("GL2 %d %d\n", context->window_width, context->window_height);
-    glViewport(0, 0, context->window_width, context->window_height);
-
-	if (context->callback == NULL)
-		redraw(data, NULL, time);
-}
-
-struct wl_callback_listener CONFIGURE_CALLBACK_LISTENER = {
-	configure_callback,
 };
 
 static void create_surface(struct Context *context) {
@@ -376,18 +353,6 @@ static void create_surface(struct Context *context) {
 			     context->egl_surface, context->egl_ctx);
 	assert(ret != 0);
     printf("OOF\n");
-}
-
-static void destroy_surface(struct Context *context) {
-	wl_surface_destroy(context->surface);
-	wl_egl_window_destroy(context->native);
-
-    // Free
-	wl_proxy_marshal((struct wl_proxy *) context->shell_surface, 0);
-    wl_proxy_destroy((struct wl_proxy *) context->shell_surface);
-
-	if (context->callback)
-		wl_callback_destroy(context->callback);
 }
 
 static const struct wl_callback_listener frame_listener;
@@ -487,6 +452,5 @@ void dive_wayland(Context* context) {
 
 	fprintf(stderr, "simple-egl exiting\n");
 
-	destroy_surface(context);
 	fini_egl(context);
 }
