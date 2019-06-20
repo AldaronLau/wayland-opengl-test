@@ -27,12 +27,26 @@ extern "C" {
         share_context: *mut c_void,
         attrib_list: *const i32,
     ) -> *mut c_void;
+    fn eglCreateWindowSurface(
+        dpy: *mut c_void,
+        config: *mut c_void,
+        win: usize, // EGLNativeWindowType
+        attrib_list: *const i32,
+    ) -> *mut c_void;
+    fn eglMakeCurrent(
+        dpy: *mut c_void,
+        draw: *mut c_void,
+        read: *mut c_void,
+        ctx: *mut c_void,
+    ) -> u32;
 }
 
 #[repr(C)]
 pub struct OpenGL {
-    //    display: *mut c_void,
-//    config: *mut c_void,
+    surface: *mut c_void,
+    display: *mut c_void,
+    context: *mut c_void,
+    config: *mut c_void,
 }
 
 impl Drop for OpenGL {
@@ -44,11 +58,28 @@ impl Draw for OpenGL {
         // TODO
         DrawHandle::Gl(std::ptr::null_mut())
     }
+
+    fn connect(&mut self, connection: *mut c_void) {
+    	self.surface = unsafe { eglCreateWindowSurface(
+            self.display,
+            self.config,
+            std::mem::transmute(connection),
+            std::ptr::null(),
+        ) };
+	    let ret = unsafe { eglMakeCurrent(
+            self.display,
+            self.surface,
+            self.surface,
+            self.context,
+        ) };
+	    debug_assert_ne!(ret, 0);
+        println!("OOF");
+    }
 }
 
 #[cfg(unix)]
 pub(super) fn new(window: &mut Window) -> Option<Box<Draw>> {
-    let (display, config) = unsafe {
+    let (display, config, context) = unsafe {
         // Get EGL Display from Window.
         let display = eglGetDisplay(match window.nwin.handle() {
             #[cfg(not(any(
@@ -78,13 +109,17 @@ pub(super) fn new(window: &mut Window) -> Option<Box<Draw>> {
             display,
             [
                 /*EGL_SURFACE_TYPE:*/ 0x3033,
-                /*EGL_WINDOW_BIT:*/ 0x04, /*EGL_RED_SIZE:*/ 0x3024,
-                8, /*EGL_GREEN_SIZE:*/ 0x3023, 8,
-                /*EGL_BLUE_SIZE:*/ 0x3022, 8,
+                /*EGL_WINDOW_BIT:*/ 0x04,
+                /*EGL_RED_SIZE:*/ 0x3024,
+                8,
+                /*EGL_GREEN_SIZE:*/ 0x3023,
+                8,
+                /*EGL_BLUE_SIZE:*/ 0x3022,
+                8,
                 /*EGL_RENDERABLE_TYPE:*/ 0x3040,
-                /*EGL_OPENGL_ES2_BIT:*/ 0x0004, /*EGL_NONE:*/ 0x3038,
-            ]
-            .as_ptr(),
+                /*EGL_OPENGL_ES2_BIT:*/ 0x0004,
+                /*EGL_NONE:*/ 0x3038,
+            ].as_ptr(),
             &mut config,
             1,
             &mut n,
@@ -99,34 +134,18 @@ pub(super) fn new(window: &mut Window) -> Option<Box<Draw>> {
             [
                 /*EGL_CONTEXT_CLIENT_VERSION:*/ 0x3098, 2,
                 /*EGL_NONE:*/ 0x3038,
-            ]
-            .as_ptr(),
+            ].as_ptr(),
         );
         debug_assert!(!context.is_null());
 
-        // TODO: Instead of writing to Nwin, write to Draw.  Avoids unsafe.
-        (*(*std::mem::transmute::<
-            &Box<_>,
-            &[*mut crate::wayland::WaylandWindow; 2],
-        >(&window.nwin))[0])
-            .egl_dpy = display;
-        (*(*std::mem::transmute::<
-            &Box<_>,
-            &[*mut crate::wayland::WaylandWindow; 2],
-        >(&window.nwin))[0])
-            .egl_conf = config;
-        (*(*std::mem::transmute::<
-            &Box<_>,
-            &[*mut crate::wayland::WaylandWindow; 2],
-        >(&window.nwin))[0])
-            .egl_ctx = context;
-
-        (display, config)
+        (display, config, context)
     };
 
-    let draw = OpenGL {
-//        display,
-//        config,
+    let draw: OpenGL = OpenGL {
+        display,
+        config,
+        context,
+        surface: std::ptr::null_mut(),
     };
 
     Some(Box::new(draw))

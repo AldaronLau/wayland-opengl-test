@@ -3,11 +3,8 @@ use std::ffi::c_void;
 #[cfg(unix)]
 mod wayland;
 
+#[cfg(not(any(target_os = "macos", target_os = "ios")))]
 mod opengl;
-
-use self::opengl::*;
-#[cfg(unix)]
-use self::wayland::*;
 
 /// Native Window Handle.
 enum NwinHandle {
@@ -40,27 +37,31 @@ trait Nwin {
     /// Get a pointer that refers to this window for interfacing.
     fn handle(&self) -> NwinHandle;
     /// Connect window to the drawing context.
-    fn connect(&self, draw: DrawHandle);
+    fn connect(&mut self, draw: &mut Box<Draw>);
 }
 
 trait Draw {
-    // Get a pointer that refers to this graphics context for interfacing.
+    /// Get a pointer that refers to this graphics context for interfacing.
     fn handle(&self) -> DrawHandle;
+    /// Finish initializing graphics context.
+    fn connect(&mut self, connection: *mut c_void);
 }
 
 /// A window on the monitor.
 #[repr(C)]
 pub struct Window {
+    nwin_c: *mut c_void,
+    draw_c: *mut c_void,
     nwin: Box<Nwin>,
     draw: Box<Draw>,
 }
 
 /// Start the Wayland + OpenGL application.
-pub fn start() -> Option<Window> {
+pub fn start() -> Box<Window> {
     /*********************/
     /* Declare Variables */
     /*********************/
-    let mut window: Window = unsafe { std::mem::zeroed() };
+    let mut window: Box<Window> = Box::new(unsafe { std::mem::zeroed() });
 
     /*********************/
     /* Create The Window */
@@ -71,23 +72,27 @@ pub fn start() -> Option<Window> {
     // Try to initialize Wayland first.
     #[cfg(unix)]
     {
-        win = win.or_else(wayland::new);
+        if win.is_none() {
+            win = wayland::new(&mut window);
+        }
     }
 
     // Hopefully we found one of the backends.
-    unsafe {
+    win.or_else(|| {
+        panic!("Couldn't find a window manager.");
+    });
+/*    unsafe {
         std::ptr::write(
             &mut window.nwin,
             win.or_else(|| {
-                eprintln!("Couldn't find a window manager.");
-                return None;
-            })?,
+                panic!("Couldn't find a window manager.");
+            }).unwrap(),
         );
-    }
+    }*/
 
-    /*********************/
-    /* Connect Rendering */
-    /*********************/
+    /**********************/
+    /* Initialize Drawing */
+    /**********************/
 
     let mut draw = None;
 
@@ -101,23 +106,42 @@ pub fn start() -> Option<Window> {
         std::ptr::write(
             &mut window.draw,
             draw.or_else(|| {
-                eprintln!("Couldn't find a graphics API.");
-                return None;
-            })?,
+                panic!("Couldn't find a graphics API.");
+            }).unwrap(),
         );
     }
+
+    /****************************/
+    /* Connect Window & Drawing */
+    /****************************/
+
+    window.nwin.connect(&mut window.draw);
 
     /*********************/
     /* Enter Render Loop */
     /*********************/
 
+    // Prepare for C.
+
+    window.nwin_c = unsafe { (*std::mem::transmute::<
+        &Box<_>, &[*mut c_void; 2]
+    >(
+        &window.nwin,
+    ))[0] };
+
+    window.draw_c = unsafe { (*std::mem::transmute::<
+        &Box<_>, &[*mut c_void; 2]
+    >(
+        &window.draw,
+    ))[0] };
+
+    println!("{:?} {:?}", window.nwin_c, window.draw_c);
+
     unsafe {
         wayland::dive_wayland(
-            (*std::mem::transmute::<&Box<_>, &[*mut wayland::WaylandWindow; 2]>(
-                &window.nwin,
-            ))[0],
+            &mut *window,
         );
     }
 
-    Some(window)
+    window
 }

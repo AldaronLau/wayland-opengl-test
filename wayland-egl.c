@@ -59,7 +59,6 @@ typedef struct Context {
 	struct wl_egl_window *native;
 	struct wl_surface *surface;
 	struct wl_shell_surface *shell_surface;
-	EGLSurface egl_surface;
 	struct wl_callback *callback;
     int configured;
     bool fullscreen;
@@ -76,15 +75,19 @@ typedef struct Context {
 	struct wl_cursor *default_cursor;
 	struct wl_surface *cursor_surface;
     void *toplevel;
-
-	EGLDisplay egl_dpy;
-	EGLContext egl_ctx;
-	EGLConfig egl_conf;
 } Context;
 
 typedef struct OpenGL {
-    
+	EGLSurface egl_surface;
+	EGLDisplay egl_dpy;
+	EGLContext egl_ctx;
+	EGLConfig egl_conf;    
 } OpenGL;
+
+typedef struct WaylandOpenGL {
+    Context* wayland;
+    OpenGL* opengl;
+} WaylandOpenGL;
 
 static const char *vert_shader_text =
 	"uniform mat4 rotation;\n"
@@ -103,13 +106,13 @@ static const char *frag_shader_text =
 	"  gl_FragColor = v_color;\n"
 	"}\n";
 
-static void fini_egl(struct Context *context) {
+static void fini_egl(struct OpenGL *opengl) {
 	/* Required, otherwise segfault in egl_dri2.c: dri2_make_current()
 	 * on eglReleaseThread(). */
-	eglMakeCurrent(context->egl_dpy, EGL_NO_SURFACE, EGL_NO_SURFACE,
+	eglMakeCurrent(opengl->egl_dpy, EGL_NO_SURFACE, EGL_NO_SURFACE,
 		       EGL_NO_CONTEXT);
 
-	eglTerminate(context->egl_dpy);
+	eglTerminate(opengl->egl_dpy);
 	eglReleaseThread();
 }
 
@@ -138,6 +141,8 @@ static GLuint create_shader(const char *source, GLenum shader_type) {
 }
 
 static void init_gl(struct Context *context) {
+    printf("%p\n", context);
+
 	GLuint frag, vert;
 	GLuint program;
 	GLint status;
@@ -168,35 +173,15 @@ static void init_gl(struct Context *context) {
 	glBindAttribLocation(program, context->gl_col, "color");
 	glLinkProgram(program);
 
-	context->gl_rotation_uniform =
-		glGetUniformLocation(program, "rotation");
-}
-
-static void create_surface(struct Context *context) {
-	context->native =
-		wl_egl_window_create(
-            context->surface,
-            context->window_width,
-            context->window_height
-        );
-
-	context->egl_surface =
-		eglCreateWindowSurface(
-            context->egl_dpy,
-            context->egl_conf,
-            context->native, NULL
-        );
-	EGLBoolean ret;
-	ret = eglMakeCurrent(context->egl_dpy, context->egl_surface,
-			     context->egl_surface, context->egl_ctx);
-	assert(ret != 0);
-    printf("OOF\n");
+	context->gl_rotation_uniform = glGetUniformLocation(program, "rotation");
 }
 
 static const struct wl_callback_listener frame_listener;
 
 void redraw(void *data, struct wl_callback *callback, uint32_t millis) {
-    struct Context* context = data;
+    printf("redraw %p\n", data);
+
+    struct WaylandOpenGL* context = data;
 
 	static const GLfloat verts[3][2] = {
 		{ -0.5, -0.5 },
@@ -218,8 +203,8 @@ void redraw(void *data, struct wl_callback *callback, uint32_t millis) {
 	static const int32_t speed_div = 5;
 	static uint32_t start_time = 0;
 
-	assert(context->callback == callback);
-	context->callback = NULL;
+	assert(context->wayland->callback == callback);
+	context->wayland->callback = NULL;
 
     uint32_t diff_millis;
     if (callback != NULL) {
@@ -228,7 +213,7 @@ void redraw(void *data, struct wl_callback *callback, uint32_t millis) {
             diff_millis = 0;
         } else {
             // TODO: overflowing subtract.
-            diff_millis = millis - context->last_millis;
+            diff_millis = millis - context->wayland->last_millis;
         }
 
 		wl_callback_destroy(callback);
@@ -239,7 +224,7 @@ void redraw(void *data, struct wl_callback *callback, uint32_t millis) {
     // milliseconds passed.  Ideal: 16(64fps)-32(32fps) milliseconds.
     uint32_t diff_nanos = diff_millis * 1000000;
 //    printf("DIFF_NANOS %d\n", diff_nanos);
-    context->last_millis = millis;
+    context->wayland->last_millis = millis;
 
 	angle = ((millis-start_time) / speed_div) % 360 * M_PI / 180.0;
 	rotation[0][0] =  cos(angle);
@@ -247,48 +232,46 @@ void redraw(void *data, struct wl_callback *callback, uint32_t millis) {
 	rotation[2][0] = -sin(angle);
 	rotation[2][2] =  cos(angle);
 
-	glUniformMatrix4fv(context->gl_rotation_uniform, 1, GL_FALSE,
+	glUniformMatrix4fv(context->wayland->gl_rotation_uniform, 1, GL_FALSE,
 			   (GLfloat *) rotation);
 
 	glClearColor(0.0, 0.0, 1.0, 0.5);
 	glClear(GL_COLOR_BUFFER_BIT);
 
-	glVertexAttribPointer(context->gl_pos, 2, GL_FLOAT, GL_FALSE, 0, verts);
-	glVertexAttribPointer(context->gl_col, 3, GL_FLOAT, GL_FALSE, 0, colors);
-	glEnableVertexAttribArray(context->gl_pos);
-	glEnableVertexAttribArray(context->gl_col);
+	glVertexAttribPointer(context->wayland->gl_pos, 2, GL_FLOAT, GL_FALSE, 0, verts);
+	glVertexAttribPointer(context->wayland->gl_col, 3, GL_FLOAT, GL_FALSE, 0, colors);
+	glEnableVertexAttribArray(context->wayland->gl_pos);
+	glEnableVertexAttribArray(context->wayland->gl_col);
 
 	glDrawArrays(GL_TRIANGLES, 0, 3);
 
-	glDisableVertexAttribArray(context->gl_pos);
-	glDisableVertexAttribArray(context->gl_col);
+	glDisableVertexAttribArray(context->wayland->gl_pos);
+	glDisableVertexAttribArray(context->wayland->gl_col);
 
-	context->callback = wl_surface_frame(context->surface);
-	wl_callback_add_listener(context->callback, &frame_listener, context);
+	context->wayland->callback = wl_surface_frame(context->wayland->surface);
+	wl_callback_add_listener(context->wayland->callback, &frame_listener, context);
 
-	eglSwapBuffers(context->egl_dpy, context->egl_surface);
+	eglSwapBuffers(context->opengl->egl_dpy, context->opengl->egl_surface);
 }
 
 static const struct wl_callback_listener frame_listener = {
 	redraw
 };
 
-void dive_wayland(Context* context) {
-	create_surface(context);
+void dive_wayland(WaylandOpenGL* wayland_opengl) {
+    printf("%p\n", wayland_opengl);
 
-    printf("WHERE!\n");
-
-	init_gl(context);
+	init_gl(wayland_opengl->wayland);
 
     printf("WHY!\n");
 
-	while (context->running) {
-		if (wl_display_dispatch(context->wldisplay) == -1) {
+	while (wayland_opengl->wayland->running) {
+		if (wl_display_dispatch(wayland_opengl->wayland->wldisplay) == -1) {
             break;
         }
     }
 
 	fprintf(stderr, "simple-egl exiting\n");
 
-	fini_egl(context);
+	fini_egl(wayland_opengl->opengl);
 }
