@@ -713,8 +713,6 @@ unsafe extern "C" fn registry_handle_global(
 //    let c = (*window).nwin_c as *mut WaylandWindow;
     let c = get(&mut (*window).nwin);
 
-    println!("{:?}", c);
-
     if strcmp(interface, b"wl_compositor\0" as *const _ as *const _) == 0 {
         let compositor = wl_proxy_marshal_constructor_versioned(
             registry,
@@ -1040,9 +1038,6 @@ pub(super) fn new(window: &mut crate::Window) -> Option<()> {
     };
 
     let nwin = get(&mut window.nwin);
-
-    println!("nwin {:?}", window as *mut _);
-    println!("nwin {:?}", nwin);
 
     unsafe {
         wl_proxy_add_listener(

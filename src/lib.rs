@@ -135,8 +135,6 @@ pub fn start() -> Box<Window> {
         &window.draw,
     ))[0] };
 
-    println!("{:?} {:?}", window.nwin_c, window.draw_c);
-
     unsafe {
         wayland::dive_wayland(
             &mut *window,

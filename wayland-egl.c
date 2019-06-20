@@ -141,8 +141,6 @@ static GLuint create_shader(const char *source, GLenum shader_type) {
 }
 
 static void init_gl(struct Context *context) {
-    printf("%p\n", context);
-
 	GLuint frag, vert;
 	GLuint program;
 	GLint status;
@@ -179,8 +177,6 @@ static void init_gl(struct Context *context) {
 static const struct wl_callback_listener frame_listener;
 
 void redraw(void *data, struct wl_callback *callback, uint32_t millis) {
-    printf("redraw %p\n", data);
-
     struct WaylandOpenGL* context = data;
 
 	static const GLfloat verts[3][2] = {
@@ -259,8 +255,6 @@ static const struct wl_callback_listener frame_listener = {
 };
 
 void dive_wayland(WaylandOpenGL* wayland_opengl) {
-    printf("%p\n", wayland_opengl);
-
 	init_gl(wayland_opengl->wayland);
 
     printf("WHY!\n");
