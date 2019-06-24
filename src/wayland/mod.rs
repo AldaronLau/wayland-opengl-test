@@ -39,7 +39,7 @@ extern "C" {
     pub(super) fn wl_proxy_add_listener(
         proxy: *mut c_void,
         implementation: *const *mut c_void,
-        data: *mut crate::Window,
+        data: *mut c_void,
     ) -> i32;
     fn wl_proxy_marshal_constructor_versioned(
         proxy: *mut c_void,
@@ -278,14 +278,14 @@ unsafe extern "C" fn pointer_handle_enter(
     window: *mut crate::Window,
     pointer: *mut c_void,
     serial: u32,
-    surface: *mut c_void,
-    sx: i32,
-    sy: i32,
+    _surface: *mut c_void,
+    _sx: i32,
+    _sy: i32,
 ) {
     let c = get(&mut (*window).nwin);
 
     let cursor = (*c).default_cursor;
-    let image = *(*(*c).default_cursor).images;
+    let image = *(*cursor).images;
     let buffer = wl_cursor_image_get_buffer(image);
     if buffer.is_null() {
         return;
@@ -365,34 +365,38 @@ unsafe extern "C" fn pointer_handle_enter(
 }
 
 unsafe extern "C" fn pointer_handle_leave(
-    window: *mut crate::Window,
-    pointer: *mut c_void,
-    serial: u32,
-    surface: *mut c_void,
+    _window: *mut crate::Window,
+    _pointer: *mut c_void,
+    _serial: u32,
+    _surface: *mut c_void,
 ) {
 }
 
 unsafe extern "C" fn pointer_handle_motion(
     window: *mut crate::Window,
-    pointer: *mut c_void,
-    time: u32,
-    sx: i32,
-    sy: i32,
+    _pointer: *mut c_void,
+    _time: u32,
+    x: i32,
+    y: i32,
 ) {
+    use std::convert::TryInto;
+
+    let c = get(&mut (*window).nwin);
+    let x = x as f32 / 256.0;
+    let y = y as f32 / 256.0;
+
+    (*c).pointer_xy = (x, y);
 }
 
 unsafe extern "C" fn pointer_handle_button(
     window: *mut crate::Window,
-    pointer: *mut c_void,
+    _pointer: *mut c_void,
     serial: u32,
     time: u32,
     button: u32,
     state: u32,
 ) {
-    const BTN_LEFT: u32 = 0x110;
-    const BTN_RIGHT: u32 = 0x111;
-    const BTN_MIDDLE: u32 = 0x112;
-    const BTN_SIDE: u32 = 0x113;
+    let c = get(&mut (*window).nwin);
 
     extern "C" {
         fn wl_proxy_marshal(
@@ -404,23 +408,26 @@ unsafe extern "C" fn pointer_handle_button(
     }
 
     match button {
-        BTN_LEFT => {
+        0x110 /*BTN_LEFT*/ => {
             // pressed.
             if state != 0 {
-                println!("Press");
-            /*                wl_proxy_marshal(
-                (*c).toplevel,
-                5, /*ZXDG_TOPLEVEL_V6_MOVE*/
-                (*c).seat,
-                serial,
-            );*/
+                if (*c).pointer_xy.1 < 40.0 {
+                    wl_proxy_marshal(
+                        (*c).toplevel,
+                        5, /*ZXDG_TOPLEVEL_V6_MOVE*/
+                        (*c).seat,
+                        serial,
+                    );
+                } else {
+                    println!("Press");
+                }
             } else {
                 println!("Release");
             }
         }
-        BTN_RIGHT => {}
-        BTN_MIDDLE => {}
-        BTN_SIDE => {}
+        0x111 /*BTN_RIGHT*/ => {}
+        0x112 /*BTN_MIDDLE*/ => {}
+        0x113 /*BTN_SIDE*/ => {}
         _ => eprintln!("Unknown"),
     }
 }
@@ -468,7 +475,7 @@ unsafe extern "C" fn redraw_wl(
         std::ptr::null_mut(),
     );
 
-    wl_proxy_add_listener((*wayland).callback, FRAME_LISTENER.as_ptr(), c);
+    wl_proxy_add_listener((*wayland).callback, FRAME_LISTENER.as_ptr(), c as *mut _ as *mut _);
 
     // Redraw on the screen.
     (*c).draw.redraw();
@@ -523,36 +530,36 @@ static mut POINTER_LISTENER: [*mut c_void; 9] = [
 ];
 
 unsafe extern "C" fn keyboard_handle_keymap(
-    window: *mut crate::Window,
-    keyboard: *mut c_void,
-    format: u32,
-    fd: i32,
-    size: u32,
+    _window: *mut crate::Window,
+    _keyboard: *mut c_void,
+    _format: u32,
+    _fd: i32,
+    _size: u32,
 ) {
 }
 
 unsafe extern "C" fn keyboard_handle_enter(
-    window: *mut crate::Window,
-    keyboard: *mut c_void,
-    serial: u32,
-    surface: *mut c_void,
-    keys: *mut c_void,
+    _window: *mut crate::Window,
+    _keyboard: *mut c_void,
+    _serial: u32,
+    _surface: *mut c_void,
+    _keys: *mut c_void,
 ) {
 }
 
 unsafe extern "C" fn keyboard_handle_leave(
-    window: *mut crate::Window,
-    keyboard: *mut c_void,
-    serial: u32,
-    surface: *mut c_void,
+    _window: *mut crate::Window,
+    _keyboard: *mut c_void,
+    _serial: u32,
+    _surface: *mut c_void,
 ) {
 }
 
 unsafe extern "C" fn keyboard_handle_key(
     window: *mut crate::Window,
-    keyboard: *mut c_void,
-    serial: u32,
-    time: u32,
+    _keyboard: *mut c_void,
+    _serial: u32,
+    _time: u32,
     key: u32,
     state: u32,
 ) {
@@ -650,19 +657,19 @@ unsafe extern "C" fn keyboard_handle_key(
         wl_proxy_add_listener(
             callback,
             CONFIGURE_CALLBACK_LISTENER.as_ptr(),
-            window,
+            window as *mut _ as *mut _,
         );
     }
 }
 
 unsafe extern "C" fn keyboard_handle_modifiers(
-    window: *mut crate::Window,
-    keyboard: *mut c_void,
-    serial: u32,
-    mods_depressed: u32,
-    mods_latched: u32,
-    mods_locked: u32,
-    group: u32,
+    _window: *mut crate::Window,
+    _keyboard: *mut c_void,
+    _serial: u32,
+    _mods_depressed: u32,
+    _mods_latched: u32,
+    _mods_locked: u32,
+    _group: u32,
 ) {
 }
 
@@ -682,8 +689,6 @@ unsafe extern "C" fn seat_handle_capabilities(
 ) {
     let c = get(&mut (*window).nwin);
 
-    println!("SEAAT");
-
     // Allow Pointer Events
     let has_pointer = (caps as u32 & WlSeatCapability::Pointer as u32) != 0;
     if has_pointer && (*c).pointer.is_null() {
@@ -693,7 +698,7 @@ unsafe extern "C" fn seat_handle_capabilities(
             &wl_pointer_interface,
             std::ptr::null_mut(),
         );
-        wl_proxy_add_listener((*c).pointer, POINTER_LISTENER.as_ptr(), window);
+        wl_proxy_add_listener((*c).pointer, POINTER_LISTENER.as_ptr(), window as *mut _ as *mut _);
     } else if !has_pointer && !(*c).pointer.is_null() {
         wl_proxy_destroy((*c).pointer);
         (*c).pointer = std::ptr::null_mut();
@@ -711,14 +716,12 @@ unsafe extern "C" fn seat_handle_capabilities(
         wl_proxy_add_listener(
             (*c).keyboard,
             KEYBOARD_LISTENER.as_ptr(),
-            window,
+            window as *mut _ as *mut _,
         );
     } else if !has_keyboard && !(*c).keyboard.is_null() {
         wl_proxy_destroy((*c).keyboard);
         (*c).keyboard = std::ptr::null_mut();
     }
-
-    println!("SEAT!");
 
     // Allow Touch Events
     // TODO
@@ -740,7 +743,7 @@ unsafe extern "C" fn registry_handle_global(
     registry: *mut c_void,
     name: u32,
     interface: *const c_void, // text
-    version: u32,
+    _version: u32,
 ) {
     //    let c = (*window).nwin_c as *mut WaylandWindow;
     let c = get(&mut (*window).nwin);
@@ -770,7 +773,7 @@ unsafe extern "C" fn registry_handle_global(
             std::ptr::null_mut(),
         );
 
-        wl_proxy_add_listener((*c).shell, XDG_SHELL_LISTENER.as_ptr(), window);
+        wl_proxy_add_listener((*c).shell, XDG_SHELL_LISTENER.as_ptr(), window as *mut _ as *mut _);
     } else if strcmp(interface, b"wl_seat\0" as *const _ as *const _) == 0 {
         (*c).seat = wl_proxy_marshal_constructor_versioned(
             registry,
@@ -783,7 +786,7 @@ unsafe extern "C" fn registry_handle_global(
             std::ptr::null_mut(),
         );
 
-        wl_proxy_add_listener((*c).seat, SEAT_LISTENER.as_ptr(), window);
+        wl_proxy_add_listener((*c).seat, SEAT_LISTENER.as_ptr(), window as *mut _ as *mut _);
     } else if strcmp(interface, b"wl_shm\0" as *const _ as *const _) == 0 {
         (*c).shm = wl_proxy_marshal_constructor_versioned(
             registry,
@@ -811,14 +814,14 @@ unsafe extern "C" fn registry_handle_global(
 }
 
 unsafe extern "C" fn registry_handle_global_remove(
-    data: *mut c_void,
-    registry: *mut c_void,
-    name: u32,
+    _data: *mut c_void,
+    _registry: *mut c_void,
+    _name: u32,
 ) {
 }
 
 unsafe extern "C" fn surface_configure(
-    data: *mut c_void,
+    _data: *mut c_void,
     zxdg_surface_v6: *mut c_void,
     serial: u32,
 ) {
@@ -832,7 +835,7 @@ unsafe extern "C" fn surface_configure(
 
 unsafe extern "C" fn toplevel_configure(
     window: *mut crate::Window,
-    zxdg_toplevel_v6: *mut c_void,
+    _zxdg_toplevel_v6: *mut c_void,
     width: i32,
     height: i32,
     _states: *mut c_void,
@@ -877,7 +880,7 @@ unsafe extern "C" fn toplevel_configure(
 
 unsafe extern "C" fn toplevel_close(
     window: *mut crate::Window,
-    zxdg_toplevel_v6: *mut c_void,
+    _zxdg_toplevel_v6: *mut c_void,
 ) {
     let c = get(&mut (*window).nwin);
 
@@ -918,12 +921,14 @@ pub struct WaylandWindow {
     last_millis: u32,
     start_time: u32,
 
+    // Input Information.
+    pointer_xy: (f32, f32), // mouse or touch
+
     // NULL if not using EGL (NULL when using Vulkan + Wayland).
     pub(super) egl_window: *mut c_void, // wl_egl_window*
     pub(super) surface: *mut c_void,    // wl_surface*
     pub(super) shell_surface: *mut c_void, // wl_shell_surface*
 
-    //    pub(super) egl_surface: *mut c_void, // EGLSurface
     pub(super) callback: *mut c_void, // wl_callback*
     pub(super) configured: i32,
     pub(super) fullscreen: bool,
@@ -940,10 +945,6 @@ pub struct WaylandWindow {
     pub(super) default_cursor: *mut WlCursor, // wl_cursor*
     pub(super) cursor_surface: *mut c_void, // wl_surface*
     pub(super) toplevel: *mut c_void,  // void*
-
-                                       //    pub(super) egl_dpy: *mut c_void, // EGLDisplay
-                                       //    pub(super) egl_ctx: *mut c_void, // EGLContext
-                                       //    pub(super) egl_conf: *mut c_void, // EGLConfig
 }
 
 impl Drop for WaylandWindow {
@@ -1045,6 +1046,8 @@ pub(super) fn new(window: &mut crate::Window) -> Option<()> {
                 last_millis: 0,
                 start_time: 0,
 
+                pointer_xy: (0.0, 0.0),
+
                 egl_window: std::ptr::null_mut(), // wl_egl_window*
                 surface: std::ptr::null_mut(),    // wl_surface*
                 shell_surface: std::ptr::null_mut(), // wl_shell_surface*
@@ -1075,7 +1078,7 @@ pub(super) fn new(window: &mut crate::Window) -> Option<()> {
         wl_proxy_add_listener(
             (*nwin).registry,
             REGISTRY_LISTENER.as_ptr(),
-            window,
+            window as *mut _ as *mut _,
         );
 
         wl_display_dispatch((*nwin).wldisplay);
@@ -1119,7 +1122,7 @@ pub(super) fn new(window: &mut crate::Window) -> Option<()> {
         wl_proxy_add_listener(
             (*nwin).shell_surface,
             SURFACE_LISTENER.as_ptr(),
-            window,
+            window as *mut _ as *mut _,
         );
     }
 
@@ -1135,7 +1138,7 @@ pub(super) fn new(window: &mut crate::Window) -> Option<()> {
         wl_proxy_add_listener(
             (*nwin).toplevel,
             TOPLEVEL_LISTENER.as_ptr(),
-            window,
+            window as *mut _ as *mut _,
         );
     }
 
@@ -1187,7 +1190,7 @@ pub(super) fn new(window: &mut crate::Window) -> Option<()> {
         wl_proxy_add_listener(
             callback,
             CONFIGURE_CALLBACK_LISTENER.as_ptr(),
-            window,
+            window as *mut _ as *mut _,
         );
     }
 

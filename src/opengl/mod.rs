@@ -2,7 +2,6 @@ use std::ffi::c_void;
 
 use super::Draw;
 use super::DrawHandle;
-use super::Nwin;
 use super::Window;
 
 mod platform;
@@ -94,7 +93,6 @@ extern "C" {
     fn glDisableVertexAttribArray(index: u32) -> ();
 }
 
-#[repr(C)]
 pub struct OpenGL {
     surface: *mut c_void,
     display: *mut c_void,
@@ -146,7 +144,6 @@ impl Draw for OpenGL {
             )
         };
         debug_assert_ne!(ret, 0);
-        println!("OOF");
 
         // Initialize OpenGL
         let frag = create_shader(
@@ -227,10 +224,6 @@ impl Draw for OpenGL {
                 b"rotation\0".as_ptr() as *const _ as *const _,
             )
         };
-        println!(
-            "{} {} {}",
-            self.gl_pos, self.gl_col, self.gl_rotation_uniform
-        );
     }
 
     fn redraw(&mut self) {
@@ -247,8 +240,8 @@ impl Draw for OpenGL {
             #[rustfmt::skip]
             let verts = [
                 -0.5, -0.5,
-                0.5, -0.5,
-                0.0,  0.5,
+                0.5,  -0.5,
+                0.0,   0.5,
             ];
             #[rustfmt::skip]
             let colors = [
@@ -359,13 +352,13 @@ pub(super) fn new(window: &mut Window) -> Option<Box<Draw>> {
         // Initialize EGL Display.
         let mut major = std::mem::uninitialized();
         let mut minor = std::mem::uninitialized();
-        let rtn = eglInitialize(display, &mut major, &mut minor);
-        debug_assert_eq!(rtn, 1);
+        let ret = eglInitialize(display, &mut major, &mut minor);
+        debug_assert_eq!(ret, 1);
 
         // Connect EGL to either OpenGL or OpenGLES, whichever is available.
         // TODO: also support /*OPENGL:*/ 0x30A2
         let ret = eglBindAPI(/*OPENGL_ES:*/ 0x30A0);
-        debug_assert_eq!(rtn, 1);
+        debug_assert_eq!(ret, 1);
 
         //
         let mut config: *mut c_void = std::mem::uninitialized();
@@ -385,7 +378,7 @@ pub(super) fn new(window: &mut Window) -> Option<Box<Draw>> {
             1,
             &mut n,
         );
-        debug_assert_eq!(rtn, 1);
+        debug_assert_eq!(ret, 1);
 
         //
         let context = eglCreateContext(

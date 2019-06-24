@@ -54,7 +54,7 @@ trait Draw {
 }
 
 /// A window on the monitor.
-pub struct Window {
+struct Window {
     draw: Box<Draw>,
     nwin: Box<Nwin>,
     redraw: fn(nanos: u64) -> (),
@@ -63,8 +63,14 @@ pub struct Window {
 static mut WINDOW: [u8; std::mem::size_of::<Box<Window>>()] =
     [0u8; std::mem::size_of::<Box<Window>>()];
 
+pub fn test() {
+    let window: &mut Box<Window> = unsafe { std::mem::transmute(&mut WINDOW) };
+
+    window.draw.test();
+}
+
 /// Start the Wayland + OpenGL application.
-pub fn start() {
+pub fn start(run: fn(nanos: u64) -> ()) {
     let window: &mut Box<Window> = unsafe { std::mem::transmute(&mut WINDOW) };
 
     /*********************/
@@ -133,16 +139,8 @@ pub fn start() {
     /* Set Redraw Loop */
     /*******************/
 
-    // Prepare for C.
-    fn redraw(_nanos: u64) -> () {
-        let window: &mut Box<Window> =
-            unsafe { std::mem::transmute(&mut WINDOW) };
-
-        window.draw.test();
-    }
-
     unsafe {
-        std::ptr::write(&mut window.redraw, redraw);
+        std::ptr::write(&mut window.redraw, run);
     }
 
     /*********************/
