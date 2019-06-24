@@ -12,12 +12,12 @@ pub(crate) enum WlSeatCapability {
 
 #[repr(C)]
 pub(crate) struct WlMessage {
-	/** Message name */
-	pub(crate) name: *const c_void,
-	/** Message signature */
-	pub(crate) signature: *const c_void,
-	/** Object argument interfaces */
-	pub(crate) wl_interface: *const *const WlInterface,
+    /** Message name */
+    pub(crate) name: *const c_void,
+    /** Message signature */
+    pub(crate) signature: *const c_void,
+    /** Object argument interfaces */
+    pub(crate) wl_interface: *const *const WlInterface,
 }
 
 #[repr(C)]

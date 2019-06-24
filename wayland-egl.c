@@ -168,13 +168,3 @@ void redraw(void *data, struct wl_callback *callback, uint32_t millis) {
 static const struct wl_callback_listener frame_listener = {
 	redraw
 };
-
-void dive_wayland(WaylandOpenGL* wayland_opengl) {
-    printf("WHY!\n");
-
-	while (wayland_opengl->wayland->running) {
-		if (wl_display_dispatch(wayland_opengl->wayland->wldisplay) == -1) {
-            break;
-        }
-    }
-}

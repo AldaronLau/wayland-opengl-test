@@ -18,7 +18,6 @@ extern "C" {
 
     pub(super) static wl_registry_interface: WlInterface;
     static wl_compositor_interface: WlInterface;
-    static wl_shell_interface: WlInterface;
     static wl_seat_interface: WlInterface;
     static wl_shm_interface: WlInterface;
     static wl_pointer_interface: WlInterface;
@@ -66,8 +65,6 @@ extern "C" {
     fn wl_proxy_destroy(proxy: *mut c_void) -> ();
     fn wl_cursor_image_get_buffer(image: *mut WlCursorImage) -> *mut c_void;
 
-    pub fn dive_wayland(c: *mut crate::Window) -> ();
-
     // Wayland EGL:
     fn wl_egl_window_create(
         surface: *mut c_void,
@@ -89,10 +86,6 @@ fn get(value: &mut Box<dyn Nwin>) -> *mut Box<WaylandWindow> {
     value as *mut _ as *mut _
 }
 
-extern "C" {
-    fn redraw(c: *mut crate::Window, callback: *mut c_void, millis: u32) -> ();
-}
-
 static mut ZXDG_SURFACE_V6_INTERFACE: WlInterface = WlInterface {
     /** Interface name */
     name: b"zxdg_surface_v6\0".as_ptr() as *const _,
@@ -102,42 +95,42 @@ static mut ZXDG_SURFACE_V6_INTERFACE: WlInterface = WlInterface {
     method_count: 5,
     /** Method (request) signatures */
     methods: [
-	    WlMessage {
+        WlMessage {
             name: b"destroy\0".as_ptr() as *const _,
             signature: b"\0".as_ptr() as *const _,
-            wl_interface: std::ptr::null()
+            wl_interface: std::ptr::null(),
         },
-	    WlMessage {
+        WlMessage {
             name: b"get_toplevel\0".as_ptr() as *const _,
             signature: b"n\0".as_ptr() as *const _,
             wl_interface: unsafe { &(&wl_surface_interface as *const _) },
         },
-	    WlMessage {
+        WlMessage {
             name: b"get_popup\0".as_ptr() as *const _,
             signature: b"noo\0".as_ptr() as *const _,
             wl_interface: unsafe { &(&ZXDG_TOPLEVEL_V6_INTERFACE as *const _) },
         },
-	    WlMessage {
+        WlMessage {
             name: b"set_window_geometry\0".as_ptr() as *const _,
             signature: b"iiii\0".as_ptr() as *const _,
             wl_interface: std::ptr::null(),
         },
-	    WlMessage {
+        WlMessage {
             name: b"ack_configure\0".as_ptr() as *const _,
             signature: b"u\0".as_ptr() as *const _,
             wl_interface: std::ptr::null(),
         },
-    ].as_ptr(),
+    ]
+    .as_ptr(),
     /** Number of events */
     event_count: 1,
     /** Event signatures */
-    events: [
-        WlMessage {
-            name: b"configure\0".as_ptr() as *const _,
-            signature: b"u\0".as_ptr() as *const _,
-            wl_interface: std::ptr::null(),
-        },
-    ].as_ptr(), // *wl_message
+    events: [WlMessage {
+        name: b"configure\0".as_ptr() as *const _,
+        signature: b"u\0".as_ptr() as *const _,
+        wl_interface: std::ptr::null(),
+    }]
+    .as_ptr(), // *wl_message
 };
 
 static mut ZXDG_TOPLEVEL_V6_INTERFACE: WlInterface = WlInterface {
@@ -149,77 +142,78 @@ static mut ZXDG_TOPLEVEL_V6_INTERFACE: WlInterface = WlInterface {
     method_count: 14,
     /** Method (request) signatures */
     methods: [
-	    WlMessage {
+        WlMessage {
             name: b"destroy\0".as_ptr() as *const _,
             signature: b"\0".as_ptr() as *const _,
-            wl_interface: std::ptr::null()
+            wl_interface: std::ptr::null(),
         },
-	    WlMessage {
+        WlMessage {
             name: b"set_parent\0".as_ptr() as *const _,
             signature: b"?o\0".as_ptr() as *const _,
-            wl_interface: std::ptr::null()
+            wl_interface: std::ptr::null(),
         },
-	    WlMessage {
+        WlMessage {
             name: b"set_title\0".as_ptr() as *const _,
             signature: b"s\0".as_ptr() as *const _,
-            wl_interface: std::ptr::null()
+            wl_interface: std::ptr::null(),
         },
-	    WlMessage {
+        WlMessage {
             name: b"set_app_id\0".as_ptr() as *const _,
             signature: b"s\0".as_ptr() as *const _,
-            wl_interface: std::ptr::null()
+            wl_interface: std::ptr::null(),
         },
-	    WlMessage {
+        WlMessage {
             name: b"show_window_menu\0".as_ptr() as *const _,
             signature: b"ouii\0".as_ptr() as *const _,
-            wl_interface: std::ptr::null()
+            wl_interface: std::ptr::null(),
         },
-	    WlMessage {
+        WlMessage {
             name: b"move\0".as_ptr() as *const _,
             signature: b"ou\0".as_ptr() as *const _,
-            wl_interface: std::ptr::null()
+            wl_interface: std::ptr::null(),
         },
-	    WlMessage {
+        WlMessage {
             name: b"resize\0".as_ptr() as *const _,
             signature: b"ouu\0".as_ptr() as *const _,
-            wl_interface: std::ptr::null()
+            wl_interface: std::ptr::null(),
         },
-	    WlMessage {
+        WlMessage {
             name: b"set_max_size\0".as_ptr() as *const _,
             signature: b"ii\0".as_ptr() as *const _,
-            wl_interface: std::ptr::null()
+            wl_interface: std::ptr::null(),
         },
-	    WlMessage {
+        WlMessage {
             name: b"set_min_size\0".as_ptr() as *const _,
             signature: b"ii\0".as_ptr() as *const _,
-            wl_interface: std::ptr::null()
+            wl_interface: std::ptr::null(),
         },
-	    WlMessage {
+        WlMessage {
             name: b"set_maximized\0".as_ptr() as *const _,
             signature: b"\0".as_ptr() as *const _,
-            wl_interface: std::ptr::null()
+            wl_interface: std::ptr::null(),
         },
-	    WlMessage {
+        WlMessage {
             name: b"unset_maximized\0".as_ptr() as *const _,
             signature: b"\0".as_ptr() as *const _,
-            wl_interface: std::ptr::null()
+            wl_interface: std::ptr::null(),
         },
-	    WlMessage {
+        WlMessage {
             name: b"set_fullscreen\0".as_ptr() as *const _,
             signature: b"?o\0".as_ptr() as *const _,
-            wl_interface: std::ptr::null()
+            wl_interface: std::ptr::null(),
         },
-	    WlMessage {
+        WlMessage {
             name: b"unset_fullscreen\0".as_ptr() as *const _,
             signature: b"\0".as_ptr() as *const _,
-            wl_interface: std::ptr::null()
+            wl_interface: std::ptr::null(),
         },
-	    WlMessage {
+        WlMessage {
             name: b"set_minimized\0".as_ptr() as *const _,
             signature: b"\0".as_ptr() as *const _,
-            wl_interface: std::ptr::null()
+            wl_interface: std::ptr::null(),
         },
-    ].as_ptr(),
+    ]
+    .as_ptr(),
     /** Number of events */
     event_count: 2,
     /** Event signatures */
@@ -234,7 +228,8 @@ static mut ZXDG_TOPLEVEL_V6_INTERFACE: WlInterface = WlInterface {
             signature: b"\0".as_ptr() as *const _,
             wl_interface: std::ptr::null(),
         },
-    ].as_ptr(), // *wl_message
+    ]
+    .as_ptr(), // *wl_message
 };
 
 static mut ZXDG_SHELL_V6_INTERFACE: WlInterface = WlInterface {
@@ -246,37 +241,37 @@ static mut ZXDG_SHELL_V6_INTERFACE: WlInterface = WlInterface {
     method_count: 4,
     /** Method (request) signatures */
     methods: [
-	    WlMessage {
+        WlMessage {
             name: b"destroy\0".as_ptr() as *const _,
             signature: b"\0".as_ptr() as *const _,
-            wl_interface: std::ptr::null()
+            wl_interface: std::ptr::null(),
         },
-	    WlMessage {
+        WlMessage {
             name: b"create_positioner\0".as_ptr() as *const _,
             signature: b"n\0".as_ptr() as *const _,
             wl_interface: unsafe { &(&wl_surface_interface as *const _) },
         },
-	    WlMessage {
+        WlMessage {
             name: b"get_xdg_surface\0".as_ptr() as *const _,
             signature: b"no\0".as_ptr() as *const _,
             wl_interface: unsafe { &(&ZXDG_TOPLEVEL_V6_INTERFACE as *const _) },
         },
-	    WlMessage {
+        WlMessage {
             name: b"pong\0".as_ptr() as *const _,
             signature: b"u\0".as_ptr() as *const _,
             wl_interface: std::ptr::null(),
         },
-    ].as_ptr(),
+    ]
+    .as_ptr(),
     /** Number of events */
     event_count: 1,
     /** Event signatures */
-    events: [
-        WlMessage {
-            name: b"ping\0".as_ptr() as *const _,
-            signature: b"u\0".as_ptr() as *const _,
-            wl_interface: std::ptr::null(),
-        },
-    ].as_ptr(), // *wl_message
+    events: [WlMessage {
+        name: b"ping\0".as_ptr() as *const _,
+        signature: b"u\0".as_ptr() as *const _,
+        wl_interface: std::ptr::null(),
+    }]
+    .as_ptr(), // *wl_message
 };
 
 unsafe extern "C" fn pointer_handle_enter(
@@ -413,12 +408,12 @@ unsafe extern "C" fn pointer_handle_button(
             // pressed.
             if state != 0 {
                 println!("Press");
-/*                wl_proxy_marshal(
-                    (*c).toplevel,
-                    5, /*ZXDG_TOPLEVEL_V6_MOVE*/
-                    (*c).seat,
-                    serial,
-                );*/
+            /*                wl_proxy_marshal(
+                (*c).toplevel,
+                5, /*ZXDG_TOPLEVEL_V6_MOVE*/
+                (*c).seat,
+                serial,
+            );*/
             } else {
                 println!("Release");
             }
@@ -426,7 +421,7 @@ unsafe extern "C" fn pointer_handle_button(
         BTN_RIGHT => {}
         BTN_MIDDLE => {}
         BTN_SIDE => {}
-        _ => { eprintln!("Unknown") },
+        _ => eprintln!("Unknown"),
     }
 }
 
@@ -439,22 +434,59 @@ unsafe extern "C" fn pointer_handle_axis(
 ) {
 }
 
-unsafe extern "C" fn configure_callback(
+unsafe extern "C" fn redraw_wl(
     c: *mut crate::Window,
+    callback: *mut c_void,
+    millis: u32,
+) {
+    let wayland = get(&mut (*c).nwin);
+
+    let diff_millis = if !callback.is_null() {
+        wl_proxy_destroy(callback);
+        if (*wayland).start_time == 0 {
+            (*wayland).start_time = millis;
+            0u32
+        } else {
+            // TODO: overflowing subtract.
+            millis - (*wayland).last_millis
+        }
+    } else {
+        0u32
+    };
+    assert!((*wayland).callback == callback);
+    (*wayland).callback = std::ptr::null_mut();
+    let diff_nanos = diff_millis as u64 * 1000000;
+    (*wayland).last_millis = millis;
+
+    ((*c).redraw)(diff_nanos);
+
+    // Get ready for next frame.
+    (*wayland).callback = wl_proxy_marshal_constructor(
+        (*wayland).surface,
+        3, /*WL_SURFACE_FRAME*/
+        &wl_callback_interface,
+        std::ptr::null_mut(),
+    );
+
+    wl_proxy_add_listener((*wayland).callback, FRAME_LISTENER.as_ptr(), c);
+
+    // Redraw on the screen.
+    (*c).draw.redraw();
+}
+
+unsafe extern "C" fn configure_callback(
+    window: *mut crate::Window,
     callback: *mut c_void,
     time: u32,
 ) {
+    let c = get(&mut (*window).nwin);
+
     wl_proxy_destroy(callback);
 
-    glViewport(
-        0,
-        0,
-        (*((*c).nwin_c as *mut WaylandWindow)).window_width,
-        (*((*c).nwin_c as *mut WaylandWindow)).window_height
-    );
+    glViewport(0, 0, (*c).window_width, (*c).window_height);
 
-    if (*((*c).nwin_c as *mut WaylandWindow)).callback.is_null() {
-        redraw(c, std::ptr::null_mut(), time);
+    if (*c).callback.is_null() {
+        redraw_wl(window, std::ptr::null_mut(), time);
     }
 }
 
@@ -464,23 +496,19 @@ unsafe extern "C" fn handle_xdg_shell_ping(
     serial: u32,
 ) {
     extern "C" {
-        fn wl_proxy_marshal(
-            p: *mut c_void,
-            opcode: u32,
-            b: u32,
-        ) -> ();
+        fn wl_proxy_marshal(p: *mut c_void, opcode: u32, b: u32) -> ();
     }
 
-	wl_proxy_marshal(shell, 3 /*ZXDG_SHELL_V6_PONG*/, serial);
+    wl_proxy_marshal(shell, 3 /*ZXDG_SHELL_V6_PONG*/, serial);
 }
 
-static mut XDG_SHELL_LISTENER: [*mut c_void; 1] = [
-    handle_xdg_shell_ping as *mut _,
-];
+static mut FRAME_LISTENER: [*mut c_void; 1] = [redraw_wl as *mut _];
 
-static mut CONFIGURE_CALLBACK_LISTENER: [*mut c_void; 1] = [
-    configure_callback as *mut _,
-];
+static mut XDG_SHELL_LISTENER: [*mut c_void; 1] =
+    [handle_xdg_shell_ping as *mut _];
+
+static mut CONFIGURE_CALLBACK_LISTENER: [*mut c_void; 1] =
+    [configure_callback as *mut _];
 
 static mut POINTER_LISTENER: [*mut c_void; 9] = [
     pointer_handle_enter as *mut _,
@@ -528,7 +556,7 @@ unsafe extern "C" fn keyboard_handle_key(
     key: u32,
     state: u32,
 ) {
-    let c = (*window).nwin_c as *mut WaylandWindow;
+    let c = get(&mut (*window).nwin);
 
     if key == KEY_ESC && state != 0 {
         (*c).running = 0;
@@ -680,7 +708,11 @@ unsafe extern "C" fn seat_handle_capabilities(
             &wl_keyboard_interface,
             std::ptr::null_mut(),
         );
-        wl_proxy_add_listener((*c).keyboard, KEYBOARD_LISTENER.as_ptr(), window);
+        wl_proxy_add_listener(
+            (*c).keyboard,
+            KEYBOARD_LISTENER.as_ptr(),
+            window,
+        );
     } else if !has_keyboard && !(*c).keyboard.is_null() {
         wl_proxy_destroy((*c).keyboard);
         (*c).keyboard = std::ptr::null_mut();
@@ -710,7 +742,7 @@ unsafe extern "C" fn registry_handle_global(
     interface: *const c_void, // text
     version: u32,
 ) {
-//    let c = (*window).nwin_c as *mut WaylandWindow;
+    //    let c = (*window).nwin_c as *mut WaylandWindow;
     let c = get(&mut (*window).nwin);
 
     if strcmp(interface, b"wl_compositor\0" as *const _ as *const _) == 0 {
@@ -763,7 +795,8 @@ unsafe extern "C" fn registry_handle_global(
             1,
             std::ptr::null_mut(),
         );
-        (*c).cursor_theme = wl_cursor_theme_load(std::ptr::null_mut(), 16, (*c).shm);
+        (*c).cursor_theme =
+            wl_cursor_theme_load(std::ptr::null_mut(), 16, (*c).shm);
         if (*c).cursor_theme.is_null() {
             eprintln!("unable to load default theme");
         }
@@ -882,15 +915,16 @@ pub struct WaylandWindow {
     pub(super) restore_height: i32,
 
     // Millisecond counter on last frame.
-    pub(super) last_millis: u32,
+    last_millis: u32,
+    start_time: u32,
 
     // NULL if not using EGL (NULL when using Vulkan + Wayland).
     pub(super) egl_window: *mut c_void, // wl_egl_window*
     pub(super) surface: *mut c_void,    // wl_surface*
     pub(super) shell_surface: *mut c_void, // wl_shell_surface*
 
-//    pub(super) egl_surface: *mut c_void, // EGLSurface
-    pub(super) callback: *mut c_void,    // wl_callback*
+    //    pub(super) egl_surface: *mut c_void, // EGLSurface
+    pub(super) callback: *mut c_void, // wl_callback*
     pub(super) configured: i32,
     pub(super) fullscreen: bool,
 
@@ -907,31 +941,28 @@ pub struct WaylandWindow {
     pub(super) cursor_surface: *mut c_void, // wl_surface*
     pub(super) toplevel: *mut c_void,  // void*
 
-//    pub(super) egl_dpy: *mut c_void, // EGLDisplay
-//    pub(super) egl_ctx: *mut c_void, // EGLContext
-//    pub(super) egl_conf: *mut c_void, // EGLConfig
+                                       //    pub(super) egl_dpy: *mut c_void, // EGLDisplay
+                                       //    pub(super) egl_ctx: *mut c_void, // EGLContext
+                                       //    pub(super) egl_conf: *mut c_void, // EGLConfig
 }
 
 impl Drop for WaylandWindow {
     fn drop(&mut self) {
         extern "C" {
-            fn wl_proxy_marshal(
-                p: *mut c_void,
-                opcode: u32,
-            ) -> ();
+            fn wl_proxy_marshal(p: *mut c_void, opcode: u32) -> ();
         }
 
         unsafe {
-            // 
-	        wl_surface_destroy(self.surface);
-	        wl_egl_window_destroy(self.egl_window);
+            //
+            wl_surface_destroy(self.surface);
+            wl_egl_window_destroy(self.egl_window);
 
             // Free
-	        wl_proxy_marshal(self.shell_surface, 0);
+            wl_proxy_marshal(self.shell_surface, 0);
             wl_proxy_destroy(self.shell_surface);
 
-	        if !self.callback.is_null() {
-		        wl_proxy_destroy(self.callback);
+            if !self.callback.is_null() {
+                wl_proxy_destroy(self.callback);
             }
 
             // ---
@@ -972,6 +1003,15 @@ impl Nwin for WaylandWindow {
         }
         draw.connect(self.egl_window);
     }
+
+    fn main_loop(&mut self) {
+        while self.running != 0 {
+            // TODO: Boolean
+            if unsafe { wl_display_dispatch(self.wldisplay) } == -1 {
+                break;
+            }
+        }
+    }
 }
 
 pub(super) fn new(window: &mut crate::Window) -> Option<()> {
@@ -1003,12 +1043,13 @@ pub(super) fn new(window: &mut crate::Window) -> Option<()> {
                 restore_height: 360,
 
                 last_millis: 0,
+                start_time: 0,
 
                 egl_window: std::ptr::null_mut(), // wl_egl_window*
                 surface: std::ptr::null_mut(),    // wl_surface*
                 shell_surface: std::ptr::null_mut(), // wl_shell_surface*
 
-                callback: std::ptr::null_mut(),    // wl_callback*
+                callback: std::ptr::null_mut(), // wl_callback*
                 configured: 1,
                 fullscreen: false,
 
@@ -1024,7 +1065,7 @@ pub(super) fn new(window: &mut crate::Window) -> Option<()> {
                 default_cursor: std::ptr::null_mut(), // wl_cursor*
                 cursor_surface: std::ptr::null_mut(), // wl_surface*
                 toplevel: std::ptr::null_mut(),       // void*
-            })
+            }),
         )
     };
 
@@ -1078,7 +1119,7 @@ pub(super) fn new(window: &mut crate::Window) -> Option<()> {
         wl_proxy_add_listener(
             (*nwin).shell_surface,
             SURFACE_LISTENER.as_ptr(),
-            window
+            window,
         );
     }
 
@@ -1094,7 +1135,7 @@ pub(super) fn new(window: &mut crate::Window) -> Option<()> {
         wl_proxy_add_listener(
             (*nwin).toplevel,
             TOPLEVEL_LISTENER.as_ptr(),
-            window
+            window,
         );
     }
 
@@ -1111,18 +1152,23 @@ pub(super) fn new(window: &mut crate::Window) -> Option<()> {
         }
 
         // Set Window Title.
-        wl_proxy_marshal((*nwin).toplevel, 2, window_title.as_ptr() as *const _);
+        wl_proxy_marshal(
+            (*nwin).toplevel,
+            2,
+            window_title.as_ptr() as *const _,
+        );
         // Set App Title.
-        wl_proxy_marshal((*nwin).toplevel, 3, window_title.as_ptr() as *const _);
+        wl_proxy_marshal(
+            (*nwin).toplevel,
+            3,
+            window_title.as_ptr() as *const _,
+        );
     }
 
     // Maximize window.
     unsafe {
         extern "C" {
-            fn wl_proxy_marshal(
-                p: *mut c_void,
-                opcode: u32,
-            ) -> ();
+            fn wl_proxy_marshal(p: *mut c_void, opcode: u32) -> ();
         }
 
         // Set Maximized.

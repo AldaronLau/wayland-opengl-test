@@ -38,6 +38,8 @@ trait Nwin {
     fn handle(&self) -> NwinHandle;
     /// Connect window to the drawing context.
     fn connect(&mut self, draw: &mut Box<Draw>);
+    /// Get the next frame.  Return false on quit.
+    fn main_loop(&mut self) -> ();
 }
 
 trait Draw {
@@ -45,23 +47,31 @@ trait Draw {
     fn handle(&self) -> DrawHandle;
     /// Finish initializing graphics context.
     fn connect(&mut self, connection: *mut c_void);
+    /// Redraw on the screen.
+    fn redraw(&mut self);
+    /// Test drawing.
+    fn test(&mut self);
 }
 
 /// A window on the monitor.
-#[repr(C)]
 pub struct Window {
-    nwin_c: *mut c_void,
-    draw_c: *mut c_void,
     draw: Box<Draw>,
     nwin: Box<Nwin>,
+    redraw: fn(nanos: u64) -> (),
 }
 
+static mut WINDOW: [u8; std::mem::size_of::<Box<Window>>()] = [0u8; std::mem::size_of::<Box<Window>>()];
+
 /// Start the Wayland + OpenGL application.
-pub fn start() -> Box<Window> {
+pub fn start() {
+    let window: &mut Box<Window> = unsafe { std::mem::transmute(&mut WINDOW) };
+
     /*********************/
     /* Declare Variables */
     /*********************/
-    let mut window: Box<Window> = Box::new(unsafe { std::mem::zeroed() });
+    unsafe {
+        std::ptr::write(window, Box::new(std::mem::zeroed()));
+    }
 
     /*********************/
     /* Create The Window */
@@ -73,7 +83,7 @@ pub fn start() -> Box<Window> {
     #[cfg(unix)]
     {
         if win.is_none() {
-            win = wayland::new(&mut window);
+            win = wayland::new(window);
         }
     }
 
@@ -81,7 +91,7 @@ pub fn start() -> Box<Window> {
     win.or_else(|| {
         panic!("Couldn't find a window manager.");
     });
-/*    unsafe {
+    /*    unsafe {
         std::ptr::write(
             &mut window.nwin,
             win.or_else(|| {
@@ -98,7 +108,7 @@ pub fn start() -> Box<Window> {
 
     // Try to initialize OpenGL(ES).
     {
-        draw = draw.or_else(|| opengl::new(&mut window));
+        draw = draw.or_else(|| opengl::new(window));
     }
 
     // Hopefully we found one of the backends.
@@ -107,7 +117,8 @@ pub fn start() -> Box<Window> {
             &mut window.draw,
             draw.or_else(|| {
                 panic!("Couldn't find a graphics API.");
-            }).unwrap(),
+            })
+            .unwrap(),
         );
     }
 
@@ -117,29 +128,24 @@ pub fn start() -> Box<Window> {
 
     window.nwin.connect(&mut window.draw);
 
+    /*******************/
+    /* Set Redraw Loop */
+    /*******************/
+
+    // Prepare for C.
+    fn redraw(_nanos: u64) -> () {
+        let window: &mut Box<Window> = unsafe { std::mem::transmute(&mut WINDOW) };
+
+        window.draw.test();
+    }
+
+    unsafe {
+        std::ptr::write(&mut window.redraw, redraw);
+    }
+
     /*********************/
     /* Enter Render Loop */
     /*********************/
 
-    // Prepare for C.
-
-    window.nwin_c = unsafe { (*std::mem::transmute::<
-        &Box<_>, &[*mut c_void; 2]
-    >(
-        &window.nwin,
-    ))[0] };
-
-    window.draw_c = unsafe { (*std::mem::transmute::<
-        &Box<_>, &[*mut c_void; 2]
-    >(
-        &window.draw,
-    ))[0] };
-
-    unsafe {
-        wayland::dive_wayland(
-            &mut *window,
-        );
-    }
-
-    window
+    window.nwin.main_loop();
 }
