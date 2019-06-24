@@ -60,7 +60,8 @@ pub struct Window {
     redraw: fn(nanos: u64) -> (),
 }
 
-static mut WINDOW: [u8; std::mem::size_of::<Box<Window>>()] = [0u8; std::mem::size_of::<Box<Window>>()];
+static mut WINDOW: [u8; std::mem::size_of::<Box<Window>>()] =
+    [0u8; std::mem::size_of::<Box<Window>>()];
 
 /// Start the Wayland + OpenGL application.
 pub fn start() {
@@ -134,7 +135,8 @@ pub fn start() {
 
     // Prepare for C.
     fn redraw(_nanos: u64) -> () {
-        let window: &mut Box<Window> = unsafe { std::mem::transmute(&mut WINDOW) };
+        let window: &mut Box<Window> =
+            unsafe { std::mem::transmute(&mut WINDOW) };
 
         window.draw.test();
     }

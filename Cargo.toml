@@ -5,6 +5,3 @@ authors = ["Jeron Aldaron Lau <jeronaldaron@gmail.com>"]
 edition = "2018"
 
 [dependencies]
-
-[build-dependencies]
-cc = { version = "1.0", features = ["parallel"] }
