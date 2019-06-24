@@ -52,8 +52,8 @@ trait Draw {
 pub struct Window {
     nwin_c: *mut c_void,
     draw_c: *mut c_void,
-    nwin: Box<Nwin>,
     draw: Box<Draw>,
+    nwin: Box<Nwin>,
 }
 
 /// Start the Wayland + OpenGL application.

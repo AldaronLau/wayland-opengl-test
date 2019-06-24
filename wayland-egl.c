@@ -89,16 +89,6 @@ typedef struct WaylandOpenGL {
     OpenGL* opengl;
 } WaylandOpenGL;
 
-static void fini_egl(struct OpenGL *opengl) {
-	/* Required, otherwise segfault in egl_dri2.c: dri2_make_current()
-	 * on eglReleaseThread(). */
-	eglMakeCurrent(opengl->egl_dpy, EGL_NO_SURFACE, EGL_NO_SURFACE,
-		       EGL_NO_CONTEXT);
-
-	eglTerminate(opengl->egl_dpy);
-	eglReleaseThread();
-}
-
 static const struct wl_callback_listener frame_listener;
 
 void redraw(void *data, struct wl_callback *callback, uint32_t millis) {
@@ -187,8 +177,4 @@ void dive_wayland(WaylandOpenGL* wayland_opengl) {
             break;
         }
     }
-
-	fprintf(stderr, "simple-egl exiting\n");
-
-	fini_egl(wayland_opengl->opengl);
 }

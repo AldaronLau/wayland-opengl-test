@@ -949,7 +949,6 @@ impl Drop for WaylandWindow {
             wl_display_flush(self.wldisplay);
             wl_display_disconnect(self.wldisplay);
         }
-        println!("Drop Widnow");
     }
 }
 

@@ -39,6 +39,8 @@ extern "C" {
         read: *mut c_void,
         ctx: *mut c_void,
     ) -> u32;
+    fn eglTerminate(dpy: *mut c_void) -> u32;
+    fn eglReleaseThread () -> u32;
 
     // OpenGL
     fn glCreateProgram() -> u32;
@@ -69,7 +71,13 @@ pub struct OpenGL {
 }
 
 impl Drop for OpenGL {
-    fn drop(&mut self) {}
+    fn drop(&mut self) {
+        unsafe {
+            eglMakeCurrent(self.display, std::ptr::null_mut(), std::ptr::null_mut(), std::ptr::null_mut());
+            eglTerminate(self.display);
+            eglReleaseThread();
+        }
+    }
 }
 
 impl Draw for OpenGL {
