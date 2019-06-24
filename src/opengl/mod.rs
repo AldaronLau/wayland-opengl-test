@@ -39,6 +39,21 @@ extern "C" {
         read: *mut c_void,
         ctx: *mut c_void,
     ) -> u32;
+
+    // OpenGL
+    fn glCreateProgram() -> u32;
+    fn glAttachShader(program: u32, shader: u32) -> ();
+    fn glLinkProgram(program: u32) -> ();
+    fn glGetProgramiv(program: u32, pname: u32, params: *mut i32) -> ();
+    fn glGetProgramInfoLog(program: u32, max_len: i32, length: *mut i32, info_log: *mut i8) -> ();
+    fn glUseProgram(program: u32) -> ();
+    fn glBindAttribLocation(program: u32, index: u32, name: *const i8) -> ();
+    fn glGetUniformLocation(program: u32, name: *const i8) -> i32;
+    fn glCreateShader(shader_type: u32) -> u32;
+    fn glShaderSource(shader: u32, count: i32, string: *const *const i8, length: *const i32) -> ();
+    fn glCompileShader(shader: u32) -> ();
+    fn glGetShaderiv(shader: u32, pname: u32, params: *mut i32) -> ();
+    fn glGetShaderInfoLog(shader: u32, max_length: i32, length: *mut i32, infoLog: *mut i8) -> ();
 }
 
 #[repr(C)]
@@ -47,6 +62,10 @@ pub struct OpenGL {
     display: *mut c_void,
     context: *mut c_void,
     config: *mut c_void,
+
+    pub(super) gl_rotation_uniform: i32,
+    pub(super) gl_pos: u32,
+    pub(super) gl_col: u32,
 }
 
 impl Drop for OpenGL {
@@ -60,6 +79,7 @@ impl Draw for OpenGL {
     }
 
     fn connect(&mut self, connection: *mut c_void) {
+        // Finish connecting EGL.
     	self.surface = unsafe { eglCreateWindowSurface(
             self.display,
             self.config,
@@ -74,7 +94,84 @@ impl Draw for OpenGL {
         ) };
 	    debug_assert_ne!(ret, 0);
         println!("OOF");
+
+        // Initialize OpenGL
+        let frag = create_shader(b"precision mediump float;
+            varying vec4 v_color;
+            void main() {
+                gl_FragColor = v_color;
+            }\0".as_ptr() as *const _ as *const _, 0x8B30 /*GL_FRAGMENT_SHADER*/);
+        let vert = create_shader(b"uniform mat4 rotation;
+            attribute vec4 pos;
+            attribute vec4 color;
+            varying vec4 v_color;
+            void main() {
+                gl_Position = rotation * pos;
+                v_color = color;
+            }\0".as_ptr() as *const _ as *const _, 0x8B31 /*GL_VERTEX_SHADER*/);
+
+        let program = unsafe { glCreateProgram() };
+        unsafe {
+            glAttachShader(program, frag);
+            glAttachShader(program, vert);
+            glLinkProgram(program);
+        }
+
+        let mut status = unsafe { std::mem::uninitialized() };
+        unsafe {
+        glGetProgramiv(program, 0x8B82 /*GL_LINK_STATUS*/, &mut status);
+        }
+        if status == 0 {
+            let mut log = [0u8; 1000];
+            let mut len = unsafe { std::mem::uninitialized() };
+            unsafe {
+            glGetProgramInfoLog(program, 1000, &mut len, log.as_mut_ptr() as *mut _ as *mut _);
+            }
+            let log = String::from_utf8_lossy(&log);
+            panic!("Error: linking:\n{}", log);
+        }
+
+        unsafe {
+            glUseProgram(program);
+        }
+        
+        self.gl_pos = 0;
+        self.gl_col = 1;
+
+        unsafe {
+        glBindAttribLocation(program, self.gl_pos, b"pos\0".as_ptr() as *const _ as *const _);
+        glBindAttribLocation(program, self.gl_col, b"color\0".as_ptr() as *const _ as *const _);
+        glLinkProgram(program);
+        }
+        self.gl_rotation_uniform = unsafe { glGetUniformLocation(program, b"rotation\0".as_ptr() as *const _ as *const _) };
+        println!("{} {} {}", self.gl_pos, self.gl_col, self.gl_rotation_uniform);
     }
+}
+
+fn create_shader(source: *const i8, shader_type: u32) -> u32 {
+	let shader = unsafe { glCreateShader(shader_type) };
+	debug_assert!(shader != 0);
+
+    unsafe {
+	    glShaderSource(shader, 1, [source].as_ptr(), std::ptr::null());
+	    glCompileShader(shader);
+    }
+
+    let mut status = unsafe { std::mem::uninitialized() };
+    unsafe {
+	    glGetShaderiv(shader, 0x8B81 /*GL_COMPILE_STATUS*/, &mut status);
+    }
+    if status == 0 {
+        let mut log = [0u8; 1000];
+        let mut len = unsafe { std::mem::uninitialized() };
+		unsafe {
+            glGetShaderInfoLog(shader, 1000, &mut len, log.as_mut_ptr() as *mut _ as *mut _);
+        }
+        let log = String::from_utf8_lossy(&log);
+		panic!("Error: compiling {}: {}\n", if shader_type == 0x8B31 /*GL_VERTEX_SHADER*/ { "vertex" } else { "fragment" }, log);
+	}
+
+	return shader;
 }
 
 #[cfg(unix)]
@@ -146,6 +243,10 @@ pub(super) fn new(window: &mut Window) -> Option<Box<Draw>> {
         config,
         context,
         surface: std::ptr::null_mut(),
+
+        gl_rotation_uniform: 0, //unsafe { std::mem::uninitialized() },
+        gl_pos: 0, //unsafe { std::mem::uninitialized() },
+        gl_col: 0, //unsafe { std::mem::uninitialized() },
     };
 
     Some(Box::new(draw))

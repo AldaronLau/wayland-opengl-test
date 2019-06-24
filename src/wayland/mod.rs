@@ -884,10 +884,6 @@ pub struct WaylandWindow {
     // Millisecond counter on last frame.
     pub(super) last_millis: u32,
 
-    pub(super) gl_rotation_uniform: u32,
-    pub(super) gl_pos: u32,
-    pub(super) gl_col: u32,
-
     // NULL if not using EGL (NULL when using Vulkan + Wayland).
     pub(super) egl_window: *mut c_void, // wl_egl_window*
     pub(super) surface: *mut c_void,    // wl_surface*
@@ -1008,10 +1004,6 @@ pub(super) fn new(window: &mut crate::Window) -> Option<()> {
                 restore_height: 360,
 
                 last_millis: 0,
-
-                gl_rotation_uniform: 0,
-                gl_pos: 0,
-                gl_col: 0,
 
                 egl_window: std::ptr::null_mut(), // wl_egl_window*
                 surface: std::ptr::null_mut(),    // wl_surface*
