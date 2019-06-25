@@ -143,6 +143,10 @@ pub fn start(run: fn(nanos: u64) -> ()) {
         std::ptr::write(&mut window.redraw, run);
     }
 
+    //    unsafe {
+    //        std::ptr::write(&mut window.context, (new)());
+    //    }
+
     /*********************/
     /* Enter Render Loop */
     /*********************/

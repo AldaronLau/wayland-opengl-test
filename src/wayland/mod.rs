@@ -379,8 +379,6 @@ unsafe extern "C" fn pointer_handle_motion(
     x: i32,
     y: i32,
 ) {
-    use std::convert::TryInto;
-
     let c = get(&mut (*window).nwin);
     let x = x as f32 / 256.0;
     let y = y as f32 / 256.0;
@@ -475,7 +473,11 @@ unsafe extern "C" fn redraw_wl(
         std::ptr::null_mut(),
     );
 
-    wl_proxy_add_listener((*wayland).callback, FRAME_LISTENER.as_ptr(), c as *mut _ as *mut _);
+    wl_proxy_add_listener(
+        (*wayland).callback,
+        FRAME_LISTENER.as_ptr(),
+        c as *mut _ as *mut _,
+    );
 
     // Redraw on the screen.
     (*c).draw.redraw();
@@ -698,7 +700,11 @@ unsafe extern "C" fn seat_handle_capabilities(
             &wl_pointer_interface,
             std::ptr::null_mut(),
         );
-        wl_proxy_add_listener((*c).pointer, POINTER_LISTENER.as_ptr(), window as *mut _ as *mut _);
+        wl_proxy_add_listener(
+            (*c).pointer,
+            POINTER_LISTENER.as_ptr(),
+            window as *mut _ as *mut _,
+        );
     } else if !has_pointer && !(*c).pointer.is_null() {
         wl_proxy_destroy((*c).pointer);
         (*c).pointer = std::ptr::null_mut();
@@ -773,7 +779,11 @@ unsafe extern "C" fn registry_handle_global(
             std::ptr::null_mut(),
         );
 
-        wl_proxy_add_listener((*c).shell, XDG_SHELL_LISTENER.as_ptr(), window as *mut _ as *mut _);
+        wl_proxy_add_listener(
+            (*c).shell,
+            XDG_SHELL_LISTENER.as_ptr(),
+            window as *mut _ as *mut _,
+        );
     } else if strcmp(interface, b"wl_seat\0" as *const _ as *const _) == 0 {
         (*c).seat = wl_proxy_marshal_constructor_versioned(
             registry,
@@ -786,7 +796,11 @@ unsafe extern "C" fn registry_handle_global(
             std::ptr::null_mut(),
         );
 
-        wl_proxy_add_listener((*c).seat, SEAT_LISTENER.as_ptr(), window as *mut _ as *mut _);
+        wl_proxy_add_listener(
+            (*c).seat,
+            SEAT_LISTENER.as_ptr(),
+            window as *mut _ as *mut _,
+        );
     } else if strcmp(interface, b"wl_shm\0" as *const _ as *const _) == 0 {
         (*c).shm = wl_proxy_marshal_constructor_versioned(
             registry,
